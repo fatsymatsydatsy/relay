@@ -99,7 +99,7 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 - [x] **2.1 Opening-hours module** 🤖 ✅ `lib/domain/opening-hours.ts`, 12/12 incl. `hours.bst-boundary` both directions (July 17:30 UTC = 18:30 London → closed; January → open but fails the 1h stay-open rule), lunch gap, 24:00-rollover for 24/7, junk-hours-never-dial, weekly-minutes size proxy + nextOpening for the zero-open path.
 - [x] **2.2 Portfolio scorer** 🤖 ✅ `lib/domain/portfolio.ts`, 9/9: ≤2/chain (independents uncapped), ≥2 independents + ≥1 supermarket when available (swaps respect the chain cap AND each other), closed/closing-soon thrown out, weights 0.35/0.25/0.25/0.15, deterministic under input shuffle, ranked bench.
 - [x] **2.3 Verdict schema + buckets** 🤖 ✅ `lib/domain/verdict.ts`: zod ExtractionSchema = §5 verbatim with schema teeth; mapper → dbStatus/bucket/verdict-jsonb + quantity + eta_days normalizers; `bucket.wrong-location` green (wrong OR unconfirmed branch → bucket 4, no payload) + fixed a latent Phase-1 bug found via §5: a verdict-status row with bucket 4 (refused/unclear) rendered as "No stock" — presentCall now maps it to unverified (regression-tested).
-- [~] **2.4 Dial resolution** 🤖 — `resolveDialNumber()` DEV_TEST/REAL + per-claim snapshot fields → passes when: both modes unit-tested; REAL refuses unverified pharmacies.
+- [x] **2.4 Dial resolution** 🤖 ✅ `lib/domain/dial-resolution.ts`: DEV_TEST deterministic team-phone spread (intended vs resolved snapshot preserved); REAL refuses unverified AND dev_test-sourced pharmacies; E.164 enforced both sides. 7/7 tests. **PHASE 2 CLOSED** — 66/66 total, typecheck + build green.
 
 ---
 
