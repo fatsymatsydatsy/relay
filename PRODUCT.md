@@ -1,4 +1,4 @@
-# PRODUCT.md — MedFind
+# PRODUCT.md — Relay
 
 _Inferred from `medfind-prd.md` + the 2026-07-25 architecture discussion; assumptions labeled. Owner: Marvin (solo builder, directing Claude Code)._
 

@@ -1,4 +1,4 @@
-# CONTEXT.md — MedFind ubiquitous language
+# CONTEXT.md — Relay ubiquitous language
 
 One shared vocabulary for conversation, code, UI, and commits. When communication stalls, suspect a
 term mismatch first, pin the term here.

@@ -1,4 +1,4 @@
-# MedFind — Architecture
+# Relay — Architecture
 
 > Repo-canonical version of the architecture (the rendered artifact at
 > https://claude.ai/code/artifact/f0a43665-e165-42a2-a329-b0ee9ea793cd is Marvin's viewing copy;

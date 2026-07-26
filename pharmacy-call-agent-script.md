@@ -1,4 +1,4 @@
-# pharmacy-call-agent-script.md — MedFind voice agent behavior spec
+# pharmacy-call-agent-script.md — Relay voice agent behavior spec
 
 **Status:** v1.2 — **approved by Marvin, 26 Jul 2026**. This is the authoritative spec the PRD points to. (v1 draft → Marvin's rulings folded in: no retries/bench model, "assistant on behalf of a patient" default self-description with truthful-if-asked, quantity never disqualifies, hold-ask removed.)
 

@@ -1,4 +1,4 @@
-# MedFind — CLAUDE.md
+# Relay — CLAUDE.md
 
 AI pharmacy stock finder (48h hackathon, submission 12:00 26 Jul 2026: GitHub repo + ≤60s demo video).
 One-liner: patient enters med + postcode → an ElevenLabs voice agent really phones open pharmacies → verdicts stream live, ranked.

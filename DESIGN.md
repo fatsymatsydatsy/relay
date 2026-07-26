@@ -1,4 +1,4 @@
-# DESIGN.md — MedFind doc & product family
+# DESIGN.md — Relay doc & product family
 
 _Established 2026-07-25 across the architecture-doc artifacts; tokens settle further with the first app build._
 

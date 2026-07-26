@@ -20,20 +20,6 @@ export function normalizePostcode(raw: string): string | null {
 }
 
 /**
- * Escapes text for interpolation into HTML strings (Leaflet DivIcons assign
- * markup via innerHTML — user text must never pass through unescaped, codex
- * P1-4). Pure — unit-tested.
- */
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
  * Resolves a UK postcode to coordinates via OUR /api/geocode proxy (the
  * browser never contacts postcodes.io directly — P1-3). Returns null on any
  * failure: callers must show an explicit "couldn't place this postcode" state,
@@ -58,25 +44,7 @@ export async function geocodePostcode(postcode: string): Promise<LatLng | null> 
   }
 }
 
-const MILES_PER_DEG_LAT = 69.0;
-
-/**
- * Projects a pharmacy's simulated bearing + distance from the patient's real
- * coordinates onto real lat/lng, so pins land in believable places around the
- * searched postcode.
- */
-export function offsetLatLng(
-  origin: LatLng,
-  distanceMiles: number,
-  bearingDeg: number,
-): LatLng {
-  const rad = (bearingDeg * Math.PI) / 180;
-  const dNorth = distanceMiles * Math.cos(rad);
-  const dEast = distanceMiles * Math.sin(rad);
-  return {
-    lat: origin.lat + dNorth / MILES_PER_DEG_LAT,
-    lng:
-      origin.lng +
-      dEast / (MILES_PER_DEG_LAT * Math.cos((origin.lat * Math.PI) / 180)),
-  };
-}
+// (The tile-map helpers escapeHtml/offsetLatLng left with the Leaflet map —
+// the schematic PharmacyMap positions pins itself and React escapes text.
+// geocodePostcode stays: the 1.5 live engine derives distance/bearing from
+// the patient's geocoded position + pharmacy lat/lng.)

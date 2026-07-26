@@ -1,4 +1,4 @@
-# MedFind — Build Steps (living state file)
+# Relay — Build Steps (living state file)
 
 > **This file is the single source of "where are we."** Every session reads it first; every step's
 > status changes here, in real time. Protocol in CLAUDE.md §Status protocol.
@@ -51,7 +51,7 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 
 - [x] **0.3 Deployed shell** 🤖 + 🧑 — https://medfind-three.vercel.app · codex phase-0 review: 9 findings, all fixed in 0.2b (verdict-leak bypasses, dial_log lifecycle, append-only triggers, E.164, explicit grants, ON_ERROR_STOP, seed glob, attempts 0–3, engines).
   - [x] 0.3.1 Vercel project + env vars + deploy → passes when: 🤖 prod URL returns 200. ✅ https://medfind-three.vercel.app (project `medfind`, 8 prod env vars set).
-  - [x] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded." ✅ Marvin: "Checked, its correct."
+  - [x] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "Relay — N pharmacies loaded." ✅ Marvin: "Checked, its correct."
   - **Step success:** the deployed site provably talks to the database.
 
 - [x] **0.4 TRACER BULLET — one real call, no logic** 🧑 *(the whole point of Phase 0)*
@@ -76,17 +76,19 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 - [ ] **1.4 Scoreboard on fake rows** 🧑 *(was 1.3)* — every state visually distinct (queued · calling · checking stock · in stock · can order · no stock · couldn't reach · couldn't verify branch · not checked in time), timestamps ("confirmed by phone at 14:32"), partial-quantity display ("1 box — you need 2") → passes when: 🧑 bucket 4 is unmistakably NOT a stock verdict; disclaimer present; teammate + Marvin sign off.
 - [ ] **1.5 Realtime proof** 🤖 + 🧑 *(was 1.4)* — anonymous sign-in, owner-scoped subscribe to `searches`+`calls`, stub `create_search` command writes fixture rows; manually UPDATE a row in SQL → passes when: 🤖 scripted local check shows the update land; 🧑 Marvin watches the board update < 2s with no refresh.
 
-**UI-merge decisions flagged for Marvin (defaults chosen so nothing blocks; all reversible):**
+**UI-merge decisions — Marvin ruled 26 Jul ~04:00:**
 
-| # | Decision taken tonight | Needs your call |
+| # | Decision | Status |
 |---|---|---|
-| F1 | UI keeps teammate's **"Relay"** brand; repo/README/docs still say MedFind | Final product name for README + video |
-| F2 | Waitlist count shows **baseline 214 + real signups** (teammate's design; their PRODUCT.md says "not real traction") | Keep for demo, or show real count only |
-| F3 | **ConnectFlow** ("connect me to my pharmacy") is simulated theater | Show in video? Risk: reads as a real call |
-| F4 | Teammate added 3rd parties: **postcodes.io** (was "pending sign-off"), **OSM tiles**, **PostHog** (disabled without key; I strip postcode from its event payload) | Sign off / veto |
-| F5 | Radius + NHS/private dropped from form (teammate's design) | OK, or add back |
-| F6 | Teammate's own Supabase project holds any real waitlist signups so far | Export/merge later |
-| F7 | Google-Maps map variant + `@react-google-maps/api` dropped (dead without an API key); Netlify Forms fallback kept (silently no-ops on Vercel) | OK |
+| F1 | Product name is **Relay** | ✅ Repo-wide rebrand (living docs + package name; historical docs/review + evidence untouched; Vercel URL stays medfind-three.vercel.app unless Marvin renames the project) |
+| F2 | Real waitlist count only (no +214) | ✅ Marvin agreed — waitlist section retires in the morning anyway |
+| F3 | ConnectFlow | ✅ Parked (component kept, never rendered) |
+| F4 | Map third parties | ✅ Swapped to a **keyless first-party schematic map** — Leaflet/OSM/tile requests removed entirely; `/api/geocode` proxy stays for the 1.5 live engine (server-side postcodes.io was already the 3.1 plan). PostHog stays key-less/disabled with allowlist |
+| F5 | Radius + NHS/private dropped from form (teammate's design) | Open — default stands (server-side radius default in 3.1) |
+| F6 | Teammate's Supabase holds early signups | Moot once waitlist retires; nothing to do |
+| F7 | Google map dropped; Netlify fallback kept (now honest per P2-4) | ✅ OK'd |
+
+**Deferred by Marvin:** codex P2-5 (waitlist abuse guards → folds into step 4.4) · P3-5 (stats/testimonial provenance links → optional polish).
 
 ---
 
