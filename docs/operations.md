@@ -5,7 +5,7 @@
 - **Production:** https://medfind-three.vercel.app (Vercel project `medfind`, deploy: `vercel deploy --prod --yes`)
 - **Cloud Supabase:** project ref `xmktnizljybwptxnmtmq` (linked; `supabase db push` applies new migrations)
 - **Webhook endpoint:** `https://medfind-three.vercel.app/api/webhooks/elevenlabs` — registered in ElevenLabs workspace settings, HMAC secret in env
-- **ElevenLabs:** agent `agent_5901kydzs35veqbs79r12bndheqb` ("Test" — replaced by call-script config in Phase 3), phone `phnum_7201kydzr0z5e1r8y0x5eh45wysf` = **+44 20 4652 2842** (London caller ID, Twilio)
+- **ElevenLabs:** agent `<ELEVENLABS_AGENT_ID in .env.local>` ("Test" — replaced by call-script config in Phase 3), phone `<ELEVENLABS_PHONE_NUMBER_ID in .env.local>` = **+44 20 4652 2842** (London caller ID, Twilio)
 
 ## Environment
 
