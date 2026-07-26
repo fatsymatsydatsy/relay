@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createDemoSearch } from "@/lib/commands/demo_search";
 import { createSearch } from "@/lib/commands/create_search";
+import { seedAreaPharmacies } from "@/lib/commands/seed_area_pharmacies";
 import { dispatch } from "@/lib/commands/dispatch";
 import { normalizePostcode } from "@/lib/search/geocode";
 
@@ -72,13 +73,18 @@ export async function POST(req: NextRequest) {
 
   try {
     if (engineMode === "live") {
-      const result = await createSearch({
-        owner: user.id,
-        medication: medication.trim(),
-        dose: dose.trim(),
-        quantity: quantityNum,
-        postcode: postcodeNorm,
-      });
+      const result = await createSearch(
+        {
+          owner: user.id,
+          medication: medication.trim(),
+          dose: dose.trim(),
+          quantity: quantityNum,
+          postcode: postcodeNorm,
+        },
+        // 5.2b national coverage: the live engine pulls the searched area's
+        // pharmacies from the NHS directory before ranking (fail-open).
+        { seedArea: seedAreaPharmacies },
+      );
       // fill the lines once the searchId is on the wire
       if (!result.zeroOpen) {
         after(async () => {

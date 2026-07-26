@@ -47,6 +47,10 @@ export interface CreateSearchDeps {
   /** Searches are mode-scoped end-to-end (3.7 P1-1): the pool, the verdict
    *  cache, and the claim all see only this mode's pharmacies. */
   dialMode?: "DEV_TEST" | "REAL";
+  /** 5.2b national coverage: ensure the searched area has NHS pharmacies
+   *  before ranking. Injected by the route (live engine only) so tests and
+   *  other callers stay network-free; its failure never fails the search. */
+  seedArea?: (args: { lat: number; lng: number; radiusKm: number }) => Promise<unknown>;
 }
 
 const KM_PER_MILE = 1.60934;
@@ -86,6 +90,17 @@ export async function createSearch(
 
   const origin = await geocode(input.postcode);
   if (!origin) throw new Error("geocode_failed");
+
+  // 5.2b: pull the searched area's pharmacies from the NHS directory into
+  // the pool before ranking — national coverage. Fail-open to existing DB
+  // rows: the directory being down must never kill a patient's search.
+  if (deps.seedArea) {
+    try {
+      await deps.seedArea({ lat: origin.lat, lng: origin.lng, radiusKm });
+    } catch (err) {
+      console.error("[create_search] area seed failed; ranking existing rows", err);
+    }
+  }
 
   // medication row: find-or-create by display (free-typed meds are allowed)
   const display = input.dose
