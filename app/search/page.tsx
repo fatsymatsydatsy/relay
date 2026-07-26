@@ -46,15 +46,15 @@ const HOW_IT_WORKS = [
 ];
 
 export default function SearchPage() {
-  // Engine seam: simulated by default; ?engine=live drives the board from the
-  // caller's own DB rows via the create_search stub + realtime (1.5). Read
-  // from location (not useSearchParams) so the static prerender stays simple.
+  // Engine seam: simulated by default. ?engine=live = the REAL pipeline
+  // (create_search portfolio queue + dispatch; DEV_TEST reroutes dials to
+  // team phones). ?engine=demo = DB fixture board, no dialing ever. Read from
+  // location (not useSearchParams) so the static prerender stays simple.
   const engine = useMemo(() => {
-    if (
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("engine") === "live"
-    ) {
-      return createLiveEngine();
+    if (typeof window !== "undefined") {
+      const mode = new URLSearchParams(window.location.search).get("engine");
+      if (mode === "live") return createLiveEngine("live");
+      if (mode === "demo") return createLiveEngine("demo");
     }
     return createSimulatedEngine();
   }, []);

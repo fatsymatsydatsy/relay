@@ -47,7 +47,9 @@ interface PharmacyWire {
   hours: Record<string, [string, string][]> | null;
 }
 
-export function createLiveEngine(): SearchEngine {
+export function createLiveEngine(
+  serverEngine: "live" | "demo" = "live",
+): SearchEngine {
   return {
     kind: "live",
 
@@ -112,7 +114,7 @@ export function createLiveEngine(): SearchEngine {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify(request),
+          body: JSON.stringify({ ...request, engine: serverEngine }),
         });
         if (!res.ok) {
           console.error("live engine: create_search failed", res.status);

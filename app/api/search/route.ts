@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createDemoSearch } from "@/lib/commands/demo_search";
+import { createSearch } from "@/lib/commands/create_search";
+import { dispatch } from "@/lib/commands/dispatch";
 import { normalizePostcode } from "@/lib/search/geocode";
 
 /**
- * POST /api/search — thin HTTP shell over the create_search command (stub).
- * Caller identity: the anonymous session's JWT; the command writes rows owned
- * by that uid so RLS + realtime scope the board to this session.
+ * POST /api/search — thin HTTP shell over the search commands.
+ * engine "live" = the REAL pipeline: create_search (portfolio queue) then
+ * dispatch fills lines post-response (DEV_TEST reroutes dials to team phones;
+ * DIALING_ENABLED=false parks everything queued). engine "demo" = the
+ * fixture board (no dialing ever). Caller identity: the anonymous session's
+ * JWT; commands write rows owned by that uid so RLS + realtime scope the
+ * board to this session.
  */
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization") ?? "";
@@ -40,7 +47,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "bad_json" }, { status: 400 });
   }
-  const { medication, dose, quantity, postcode } = (body ?? {}) as Record<
+  const { medication, dose, quantity, postcode, engine } = (body ?? {}) as Record<
     string,
     unknown
   >;
@@ -61,7 +68,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   }
 
+  const engineMode = engine === "live" ? "live" : "demo";
+
   try {
+    if (engineMode === "live") {
+      const result = await createSearch({
+        owner: user.id,
+        medication: medication.trim(),
+        dose: dose.trim(),
+        quantity: quantityNum,
+        postcode: postcodeNorm,
+      });
+      // fill the lines once the searchId is on the wire
+      if (!result.zeroOpen) {
+        after(async () => {
+          try {
+            await dispatch();
+          } catch (err) {
+            console.error("dispatch after create_search failed:", err);
+          }
+        });
+      }
+      return NextResponse.json(result);
+    }
+
     const { searchId } = await createDemoSearch({
       owner: user.id,
       medication: medication.trim(),
@@ -71,7 +101,11 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ searchId });
   } catch (err) {
-    console.error("create_search stub failed:", err);
-    return NextResponse.json({ error: "command_failed" }, { status: 500 });
+    console.error(`create_search (${engineMode}) failed:`, err);
+    const detail = err instanceof Error ? err.message : "";
+    return NextResponse.json(
+      { error: detail === "geocode_failed" ? "geocode_failed" : "command_failed" },
+      { status: detail === "geocode_failed" ? 422 : 500 },
+    );
   }
 }
