@@ -322,3 +322,72 @@ describe("watchdog.reconcile", () => {
     }
   });
 });
+
+describe("ring cap + conversation overrun (5.2d)", () => {
+  it("initiated past the ring cap → unreached b4, never a stock verdict", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    const searchId = await mkSearch();
+    const convId = `conv_w42_ring_${RUN}`;
+    const callId = await mkCall(searchId, { conversation_id: convId }); // 180s old
+
+    const conversations: ConversationLookup = async (id) =>
+      id === convId ? { ok: true, state: "initiated" } : { ok: true, state: "in_progress" };
+    const summary = await watchdog({ db, conversations });
+
+    expect(summary.ringTimeouts).toBeGreaterThanOrEqual(1);
+    const { data: call } = await db
+      .from("calls")
+      .select("status, rank_bucket, verdict")
+      .eq("id", callId)
+      .single();
+    expect(call?.status).toBe("unreached");
+    expect(call?.rank_bucket).toBe(4);
+    expect(call?.verdict).toBeNull();
+    expect(await anomaliesFor("watchdog_ring_timeout", callId)).toHaveLength(1);
+  });
+
+  it("initiated younger than the ring cap is left ringing", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    const searchId = await mkSearch();
+    const convId = `conv_w42_ringing_${RUN}`;
+    const callId = await mkCall(searchId, {
+      conversation_id: convId,
+      claimed_at: new Date(Date.now() - 40_000).toISOString(), // stale (>30s) but under 60s cap
+    });
+
+    const conversations: ConversationLookup = async (id) =>
+      id === convId ? { ok: true, state: "initiated" } : { ok: true, state: "in_progress" };
+    await watchdog({ db, conversations });
+
+    const { data: call } = await db.from("calls").select("status").eq("id", callId).single();
+    expect(call?.status).toBe("dialing"); // still legitimately ringing
+  });
+
+  it("in_progress past abandonAfter → unreached (conversation overrun)", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    const searchId = await mkSearch();
+    const convId = `conv_w42_overrun_${RUN}`;
+    const callId = await mkCall(searchId, {
+      conversation_id: convId,
+      claimed_at: new Date(Date.now() - 700_000).toISOString(),
+    });
+
+    const conversations: ConversationLookup = async (id) =>
+      id === convId ? { ok: true, state: "in_progress" } : { ok: true, state: "in_progress" };
+    const summary = await watchdog({ db, conversations });
+
+    expect(summary.abandoned).toBeGreaterThanOrEqual(1);
+    const { data: call } = await db
+      .from("calls")
+      .select("status, rank_bucket, verdict")
+      .eq("id", callId)
+      .single();
+    expect(call?.status).toBe("unreached");
+    expect(call?.rank_bucket).toBe(4);
+    expect(call?.verdict).toBeNull();
+    expect(await anomaliesFor("watchdog_conversation_overrun", callId)).toHaveLength(1);
+  });
+});

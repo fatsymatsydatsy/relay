@@ -45,6 +45,10 @@ export interface WatchdogDeps {
   extractFn?: (callId: string) => Promise<unknown>;
   dispatchFn?: () => Promise<unknown>;
   staleAfterSeconds?: number;
+  /** 5.2d: `initiated` (ringing, never answered) older than this →
+   *  unreached. Marvin's product rule: nobody answers after ~30s of
+   *  ringing; with the 30s tick cadence this detects at 60–90s. */
+  ringCapSeconds?: number;
   extractAfterSeconds?: number;
   abandonAfterSeconds?: number;
 }
@@ -54,6 +58,8 @@ export interface WatchdogSummary {
   reconciledFailed: number;
   reconciledGone: number;
   abandoned: number;
+  /** 5.2d: unanswered rings closed at the ring cap */
+  ringTimeouts: number;
   ambiguous: number;
   reExtracted: number;
   expiredCalls: number;
@@ -67,6 +73,7 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
   // 30s + the 60s cron cadence keeps every rescue inside the <90s criterion;
   // a young-but-live call just answers "in progress" and is left alone
   const staleAfter = deps.staleAfterSeconds ?? 30;
+  const ringCap = deps.ringCapSeconds ?? 60;
   const extractAfter = deps.extractAfterSeconds ?? 90;
   const abandonAfter = deps.abandonAfterSeconds ?? 600;
 
@@ -75,6 +82,7 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
     reconciledFailed: 0,
     reconciledGone: 0,
     abandoned: 0,
+    ringTimeouts: 0,
     ambiguous: 0,
     reExtracted: 0,
     expiredCalls: 0,
@@ -142,7 +150,37 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
     }
 
     const lookup = await conversations(call.conversation_id);
-    if (lookup.ok && lookup.state === "in_progress") continue; // genuinely live
+    const ageSeconds = (now.getTime() - new Date(call.claimed_at).getTime()) / 1000;
+
+    // 5.2d ring cap: `initiated` = ringing, nobody has answered, the agent
+    // has never spoken. Past the cap → honest b4 + the line refills. Found
+    // on the first REAL run: an unanswered W2 line rang 12+ minutes because
+    // this state matched no branch. (No remote hang-up exists; a late
+    // answer's webhook cannot resurrect a terminal row.)
+    if (lookup.ok && lookup.state === "initiated") {
+      if (ageSeconds >= ringCap) {
+        if (await markUnreachedAndRefill(call, "watchdog_ring_timeout", { age: ageSeconds })) {
+          summary.ringTimeouts++;
+        }
+      }
+      continue; // younger: still legitimately ringing
+    }
+
+    if (lookup.ok && lookup.state === "in_progress") {
+      // 5.2d overrun guard (closes the P1-6 immortal-conversation hole):
+      // the agent script keeps calls ~2 min — 10 min of in_progress is
+      // pathology, never a real consult.
+      if (ageSeconds >= abandonAfter) {
+        if (
+          await markUnreachedAndRefill(call, "watchdog_conversation_overrun", {
+            age: ageSeconds,
+          })
+        ) {
+          summary.abandoned++;
+        }
+      }
+      continue; // genuinely live
+    }
 
     if (lookup.ok && (lookup.state === "done" || lookup.state === "failed")) {
       // replay the webhook we never received through the SAME machinery

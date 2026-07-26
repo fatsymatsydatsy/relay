@@ -21,6 +21,7 @@ export type OutboundCaller = (input: OutboundCallInput) => Promise<OutboundCallR
  *  whose webhook we may have lost? Only DEFINITE answers transition rows. */
 export type ConversationLookupResult =
   | { ok: true; state: "done"; transcript: unknown; analysis: unknown }
+  | { ok: true; state: "initiated" } // pre-connect: ringing, nobody answered yet
   | { ok: true; state: "in_progress" }
   | { ok: true; state: "failed" }
   | { ok: false; notFound: true }
@@ -52,7 +53,11 @@ export const elevenLabsGetConversation: ConversationLookup = async (conversation
       return { ok: true, state: "done", transcript: data.transcript ?? null, analysis: data.analysis ?? null };
     }
     if (data.status === "failed") return { ok: true, state: "failed" };
-    return { ok: true, state: "in_progress" }; // initiated / in-progress / processing
+    // "initiated" is its own state (5.2d): the phone is ringing and nobody
+    // has answered — the watchdog ring-caps it; collapsing it into
+    // in_progress made unanswered rings immortal on the first REAL run.
+    if (data.status === "initiated") return { ok: true, state: "initiated" };
+    return { ok: true, state: "in_progress" }; // in-progress / processing
   } catch (err) {
     return { ok: false, notFound: false, detail: String(err).slice(0, 200) };
   }
