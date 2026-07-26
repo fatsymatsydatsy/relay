@@ -120,6 +120,16 @@ afterAll(async () => {
   await db.from("medications").delete().like("display", `${MED}%`);
 });
 
+/** the 4.4 guard allows one ACTIVE search per owner — settle the previous
+ *  board first, exactly like a real session re-searching after completion */
+async function completePriorSearches() {
+  await db
+    .from("searches")
+    .update({ status: "complete", settled_at: new Date().toISOString() })
+    .eq("owner", OWNER)
+    .eq("status", "active");
+}
+
 describe("create_search integration (local stack)", () => {
   it("queues the right mix: 6 targets, ≤2 per chain, supermarket in, bench behind", async () => {
     if (!stackUp) return expect.soft(true).toBe(true);
@@ -162,6 +172,7 @@ describe("create_search integration (local stack)", () => {
     if (!stackUp) return expect.soft(true).toBe(true);
 
     // manufacture a prior verdict 30 min ago for pharmacy 1 on the same med
+    await completePriorSearches();
     const { data: med } = await db
       .from("medications")
       .select("id")
@@ -222,6 +233,7 @@ describe("create_search integration (local stack)", () => {
   it("night simulation: zero open pharmacies → complete immediately with next openings", async () => {
     if (!stackUp) return expect.soft(true).toBe(true);
 
+    await completePriorSearches();
     // origin next to the isolated pharmacy 12; the minimum legal radius
     // (0.5km — schema CHECK) reaches nothing else
     const nightGeocode = async () => ({ lat: ORIGIN.lat + 0.02, lng: ORIGIN.lng });

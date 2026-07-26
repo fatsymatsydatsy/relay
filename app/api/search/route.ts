@@ -101,8 +101,15 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ searchId });
   } catch (err) {
-    console.error(`create_search (${engineMode}) failed:`, err);
     const detail = err instanceof Error ? err.message : "";
+    // 4.4 abuse guard: the caller already has a live board — point back at it
+    if (detail.startsWith("active_search_exists:")) {
+      return NextResponse.json(
+        { error: "active_search_exists", searchId: detail.split(":")[1] },
+        { status: 409 },
+      );
+    }
+    console.error(`create_search (${engineMode}) failed:`, err);
     return NextResponse.json(
       { error: detail === "geocode_failed" ? "geocode_failed" : "command_failed" },
       { status: detail === "geocode_failed" ? 422 : 500 },

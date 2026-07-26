@@ -65,6 +65,18 @@ export async function createSearch(
     deps.dialMode ??
     ((process.env.DIAL_MODE ?? "DEV_TEST") as "DEV_TEST" | "REAL");
 
+  // abuse guard (4.4): one live search per session at a time — a second
+  // submit resumes the running board instead of dialing more pharmacies
+  const { data: existing } = await db
+    .from("searches")
+    .select("id")
+    .eq("owner", input.owner)
+    .eq("status", "active")
+    .neq("dial_mode", "DEMO")
+    .limit(1)
+    .maybeSingle();
+  if (existing) throw new Error(`active_search_exists:${existing.id}`);
+
   const origin = await geocode(input.postcode);
   if (!origin) throw new Error("geocode_failed");
 
