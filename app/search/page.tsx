@@ -15,6 +15,7 @@ import DemoBanner from "@/components/search/DemoBanner";
 import SafetyLine from "@/components/search/SafetyLine";
 import { createSimulatedEngine } from "@/lib/search/simulated";
 import { createLiveEngine } from "@/lib/search/live-engine";
+import { resolveEngineKind } from "@/lib/search/engine-select";
 import { capture } from "@/lib/analytics";
 import type {
   PharmacyResult,
@@ -46,17 +47,19 @@ const HOW_IT_WORKS = [
 ];
 
 export default function SearchPage() {
-  // Engine seam: simulated by default. ?engine=live = the REAL pipeline
-  // (create_search portfolio queue + dispatch; DEV_TEST reroutes dials to
-  // team phones). ?engine=demo = DB fixture board, no dialing ever. Read from
-  // location (not useSearchParams) so the static prerender stays simple.
+  // Engine seam: LIVE by default (5.2c, engine.default-live) — the deployed
+  // page is the product. ?engine=sim = client-side simulation (explicit
+  // opt-in only); ?engine=demo = DB fixture board, no dialing ever. Read
+  // from location (not useSearchParams) so the static prerender stays
+  // simple; SSR renders the form only, so the client-side decision is safe.
   const engine = useMemo(() => {
-    if (typeof window !== "undefined") {
-      const mode = new URLSearchParams(window.location.search).get("engine");
-      if (mode === "live") return createLiveEngine("live");
-      if (mode === "demo") return createLiveEngine("demo");
-    }
-    return createSimulatedEngine();
+    const mode =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("engine")
+        : null;
+    const kind = resolveEngineKind(mode);
+    if (kind === "simulated") return createSimulatedEngine();
+    return createLiveEngine(kind);
   }, []);
 
   const simulated = engine.kind === "simulated";
