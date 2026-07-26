@@ -39,7 +39,7 @@ All enforced inside one advisory-locked claim function in Postgres — nowhere e
 
 ## Architecture in one sentence
 
-Postgres is the single source of truth; small commands (`lib/commands/`, one file each) are the only writers; the UI is a projection over realtime — see [docs/architecture.md](docs/architecture.md) for the state machine, event model, and failure table, and [build-steps.md](build-steps.md) for the full build log including every designed-out bug.
+Postgres is the single source of truth; small commands (`lib/commands/`, one file each) are the only writers; the UI is a projection over realtime. Every politeness rule lives in one advisory-locked SQL claim; every past bug became a named test.
 
 ## Stack
 
@@ -74,4 +74,4 @@ npm run dev
 
 ## AI usage
 
-This project was pair-built with **Claude Code** (Claude Fable 5) across the 48 hours — architecture, commands, tests, reviews, and two independent adversarial audits run by a second model (GPT‑5.6) whose findings are in [docs/review/](docs/review/). Human decisions (Marvin): product calls, every criterion change, all real-call approvals, agent conversation rulings from listening to live transcripts, and the manual test gates recorded in [build-steps.md](build-steps.md).
+This project was pair-built with **Claude Code** (Claude Fable 5) across the 48 hours — architecture, commands, tests, and reviews, plus two independent adversarial audits run by a second model (GPT‑5.6). Human decisions (Marvin): product calls, every criterion change, all real-call approvals, and agent conversation rulings from listening to live transcripts.

@@ -14,3 +14,13 @@ node_modules/
 # misc
 .DS_Store
 *.log
+
+# internal working docs — not for the public repo (Marvin, 26 Jul)
+docs/
+build-steps.md
+CLAUDE.md
+CONTEXT.md
+PRODUCT.md
+DESIGN.md
+pharmacy-call-agent-script.md
+.scratch/
