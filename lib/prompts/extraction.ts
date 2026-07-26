@@ -20,6 +20,7 @@ Rules — these mirror hard database constraints, so violations are rejected:
 - stock_status may be "in_stock" or "out_of_stock" ONLY when the call completed AND the pharmacy branch was confirmed (location_confirmed = "yes"). Anything else: "unclear" or "not_asked".
 - outcome "voicemail", "wrong_location", "national_line": stock fields must be empty (stock_status "not_asked", quantities null, orderable "unknown", eta null).
 - Voicemail, answering machines, IVR dead-ends with no human: outcome "voicemail".
+- The callee's own greeting naming the pharmacy (matching the expected name, or an obvious variant of it) COUNTS as branch confirmation (location_confirmed = "yes") — the agent deliberately does not re-ask when the greeting already answered it (script v1.3).
 - The person says it's a different branch or can't confirm the branch: outcome "wrong_location".
 - A human answered, branch confirmed, but they refused, were too busy, or the call ended without a stock answer: outcome "refused" (explicit refusal) or "incomplete".
 - ANY amount in stock is in_stock — one box counts. quantity_meets_need is informational only.

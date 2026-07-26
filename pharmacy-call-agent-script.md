@@ -1,6 +1,6 @@
 # pharmacy-call-agent-script.md — Relay voice agent behavior spec
 
-**Status:** v1.2 — **approved by Marvin, 26 Jul 2026**. This is the authoritative spec the PRD points to. (v1 draft → Marvin's rulings folded in: no retries/bench model, "assistant on behalf of a patient" default self-description with truthful-if-asked, quantity never disqualifies, hold-ask removed.)
+**Status:** v1.3 — 26 Jul 2026, from **Marvin's transcript review of the first REAL run** (W2 2DS). This is the authoritative spec the PRD points to. v1.3 rulings (Marvin's words): the agent must LISTEN FIRST — no talking over the callee's greeting (technically: empty `first_message`); never "sorry to bother you" — this is a normal trade call; a greeting that names the pharmacy IS the branch check — don't re-ask; never speak sentences at an IVR — listen silently, press the keypad option; never end the call while the human is still checking stock. (v1.2 history: no retries/bench model, honest-if-asked identity, quantity never disqualifies, hold-ask removed.)
 
 ---
 
@@ -50,10 +50,15 @@ flowchart TD
 
 ## 4. Exact conversational behavior
 
-### Opening (after a human answers)
-> "Hi, sorry to bother you — is this **{{pharmacy_name}}** on **{{street}}**?"
+### Pickup: LISTEN FIRST (v1.3 — never talk over them)
+- When the call connects the agent **says nothing** until whoever answered has finished speaking. Pharmacies answer with their name — the greeting is data. (Technically: `first_message` is empty; the agent's turn begins after theirs ends.)
+- **Recorded menu (IVR):** stay silent, listen to the options, press the keypad option for pharmacy/dispensary/stock enquiries — at most two menu levels. **Never speak sentences at a recording, never repeat the greeting at it.** Voice-driven store picker → polite end, outcome `national_line`.
+- **Voicemail:** end immediately, no message.
 
-- **Yes** → continue. **No / unsure / a different branch** → "Ah, my mistake — sorry to trouble you, have a good day." End. Outcome `wrong_location`.
+### Opening (after a human finishes their greeting)
+- **Their greeting named the pharmacy and it matches `{{pharmacy_name}}`** → the branch IS confirmed. No re-ask; go straight to the ask.
+- Greeting didn't name it / unclear → "Hi — is that **{{pharmacy_name}}** on **{{street}}**?" (No apology — this is a normal call.)
+- **No / unsure / a different branch** → "Ah, my mistake — thanks for your time, have a good day." End. Outcome `wrong_location`.
 
 ### The ask
 > "Great — I'm an assistant calling on behalf of a patient. Do you currently have **{{medication}}** in stock?"
@@ -61,10 +66,11 @@ flowchart TD
 - Always the full medication name + strength + form. 25,000 is not 10,000.
 - **Quantity never disqualifies.** If they have *any* stock, that's a win — for shortage meds, one box in stock is gold. The agent asks amount as a clarification ("roughly how much do you have?"), records it, and never says "that's not enough." Partial stock reports as IN STOCK with the amount; the app shows "in stock — 1 box (you need 2)."
 
-### The quiet period (critical)
+### The quiet period (critical — hardened in v1.3)
 - "Let me go check" → the agent says "of course, take your time" and then **waits silently up to 2 minutes**. Silence is success, not failure.
+- If the silence stretches past ~45 seconds, ONE soft "No rush — I'm still here," then back to waiting.
 - If they return mid-check ("still looking") → brief acknowledgment only ("no rush").
-- Never hang up during a check while inside the 5-minute budget.
+- **Never hang up, and never say "I can let you go", while they are or might still be checking** (v1.3 — the agent bailed on a live stock check in the first REAL run). The exit line exists ONLY for when *they* signal they're too busy. The call ends only after: a stock answer, a refusal, a wrong branch, or the 5-minute budget.
 
 ### Branches after the answer
 - **In stock (any amount)** → clarify amount if not stated ("brilliant — roughly how much do you have?"), then thank warmly and end. **No hold request** — the MVP checks stock, nothing more.
