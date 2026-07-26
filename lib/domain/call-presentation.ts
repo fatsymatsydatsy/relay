@@ -48,6 +48,13 @@ export function presentCall(row: CallRowLike): CallPresentation {
     case "transcript_ready":
       return { phase: "asking" };
     case "verdict": {
+      // A verdict row can still be bucket 4 (refused / unclear / not asked —
+      // extraction succeeded, nothing was verified). It must NEVER borrow a
+      // stock-verdict look (found via call-script §5 during 2.3; test
+      // `verdict-row bucket 4 renders unverified`).
+      if (row.rank_bucket === 4 || row.rank_bucket == null) {
+        return { phase: "unverified", bucket: 4 };
+      }
       const v = row.verdict ?? {};
       const base = {
         quantityAvailable: v.quantity_available ?? null,
