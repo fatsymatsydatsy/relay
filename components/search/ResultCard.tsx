@@ -1,10 +1,16 @@
 import type { PharmacyResult } from "@/lib/search/types";
+import {
+  confirmedAtLabel,
+  quantityLabel,
+} from "@/lib/domain/call-presentation";
 
 interface ResultCardProps {
   medication: string;
   dose: string;
+  quantityNeeded: number;
   best: PharmacyResult;
   alternatives: PharmacyResult[];
+  orderable: PharmacyResult[];
 }
 
 function PinIcon() {
@@ -28,10 +34,15 @@ function ClockIcon() {
 export default function ResultCard({
   medication,
   dose,
+  quantityNeeded,
   best,
   alternatives,
+  orderable,
 }: ResultCardProps) {
   const doseSuffix = dose ? ` ${dose}` : "";
+  const confirmed = confirmedAtLabel(best.confirmedAt);
+  const qty = best.quantityAvailable;
+  const partial = qty != null && qty < quantityNeeded;
 
   return (
     <div className="card card-lift overflow-hidden">
@@ -54,6 +65,23 @@ export default function ResultCard({
           <span className="rounded-pill bg-teal/10 px-3 py-1 text-xs font-medium text-teal">
             Nearest with stock
           </span>
+          {qty != null && (
+            <span
+              className={`rounded-pill px-3 py-1 text-xs font-medium ${
+                partial
+                  ? "bg-coral-soft text-coral-deep"
+                  : "border border-line bg-surface text-ink"
+              } tnum`}
+            >
+              {quantityLabel(qty, best.quantityUnit)}
+              {partial ? ` — you need ${quantityNeeded}` : " on the shelf"}
+            </span>
+          )}
+          {confirmed && (
+            <span className="rounded-pill border border-line bg-surface px-3 py-1 text-xs font-medium text-muted tnum">
+              confirmed by phone at {confirmed}
+            </span>
+          )}
         </div>
       </div>
 
@@ -107,7 +135,24 @@ export default function ResultCard({
             {alternatives.map((alt, i) => (
               <span key={alt.id}>
                 <span className="font-medium text-ink">{alt.name}</span> (
-                {alt.distanceMiles} mi){i < alternatives.length - 1 ? ", " : ""}
+                {alt.distanceMiles} mi
+                {alt.quantityAvailable != null
+                  ? ` · ${quantityLabel(alt.quantityAvailable, alt.quantityUnit)}`
+                  : ""}
+                ){i < alternatives.length - 1 ? ", " : ""}
+              </span>
+            ))}
+          </p>
+        )}
+
+        {orderable.length > 0 && (
+          <p className="mt-3 rounded-[10px] bg-mist px-3.5 py-2.5 text-sm text-muted">
+            Can order it in:{" "}
+            {orderable.map((alt, i) => (
+              <span key={alt.id}>
+                <span className="font-medium text-ink">{alt.name}</span>
+                {alt.eta ? ` (${alt.eta})` : ""}
+                {i < orderable.length - 1 ? ", " : ""}
               </span>
             ))}
           </p>

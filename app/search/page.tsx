@@ -78,7 +78,9 @@ export default function SearchPage() {
       onComplete: (final) => {
         setPharmacies(final);
         setResolved(true);
-        window.setTimeout(() => setStage("results"), 1100);
+        // Let the ranked, fully-resolved board breathe before the results
+        // view — it's the artifact the 1.4 gate (and the demo video) reads.
+        window.setTimeout(() => setStage("results"), 2600);
       },
     });
   }
@@ -94,6 +96,7 @@ export default function SearchPage() {
   const inStock = pharmacies.filter((p) => p.phase === "in-stock");
   const best = inStock[0] ?? null;
   const alternatives = inStock.slice(1);
+  const orderable = pharmacies.filter((p) => p.phase === "can-order");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -214,8 +217,10 @@ export default function SearchPage() {
                   <ResultCard
                     medication={request.medication}
                     dose={request.dose}
+                    quantityNeeded={request.quantity}
                     best={best}
                     alternatives={alternatives}
+                    orderable={orderable}
                   />
                 </div>
                 {/* ConnectFlow (bridge to the nominated pharmacy) is parked
@@ -225,12 +230,26 @@ export default function SearchPage() {
             ) : (
               <div className="card animate-fade-up p-6 text-center">
                 <h2 className="display text-2xl text-ink">
-                  No stock nearby right now
+                  No shelf stock nearby right now
                 </h2>
                 <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-muted">
-                  None of the pharmacies we called had {request.medication} in
-                  stock. Stock changes daily — try again later, or ask your
-                  pharmacist about alternatives.
+                  {orderable.length > 0 ? (
+                    <>
+                      None had {request.medication} on the shelf, but{" "}
+                      <span className="font-medium text-ink">
+                        {orderable[0].name}
+                      </span>{" "}
+                      can order it in
+                      {orderable[0].eta ? ` for ${orderable[0].eta}` : ""} —{" "}
+                      <span className="tnum text-ink">{orderable[0].phone}</span>.
+                    </>
+                  ) : (
+                    <>
+                      None of the pharmacies we called had {request.medication}{" "}
+                      in stock. Stock changes daily — try again later, or ask
+                      your pharmacist about alternatives.
+                    </>
+                  )}
                 </p>
               </div>
             )}

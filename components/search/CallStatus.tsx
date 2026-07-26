@@ -1,4 +1,5 @@
-import type { CallPhase } from "@/lib/search/types";
+import type { CallPhase, PharmacyResult } from "@/lib/search/types";
+import { quantityLabel } from "@/lib/domain/call-presentation";
 
 export function Waveform() {
   return (
@@ -31,6 +32,8 @@ export function CallingDots() {
 /** The pulsing status dot at the head of each call row. */
 export function StatusDot({ phase }: { phase: CallPhase }) {
   const active = phase === "dialing" || phase === "asking";
+  const isBucket4 =
+    phase === "unreached" || phase === "unverified" || phase === "expired";
   return (
     <span className="relative flex h-2.5 w-2.5 shrink-0">
       {active && (
@@ -40,19 +43,38 @@ export function StatusDot({ phase }: { phase: CallPhase }) {
         className={`relative h-2.5 w-2.5 rounded-full transition-colors duration-300 ${
           phase === "in-stock"
             ? "bg-teal"
-            : phase === "out-of-stock"
-              ? "bg-line"
-              : active
-                ? "bg-teal"
-                : "bg-muted/30"
+            : phase === "can-order"
+              ? "bg-teal-soft"
+              : phase === "no-stock"
+                ? "bg-line"
+                : isBucket4
+                  ? "border border-muted/50 bg-transparent"
+                  : active
+                    ? "bg-teal"
+                    : "bg-muted/30"
         }`}
       />
     </span>
   );
 }
 
-export function StatusTag({ phase }: { phase: CallPhase }) {
-  switch (phase) {
+/** Bucket-4 outcomes: hollow, dashed, muted — visibly NOT a stock verdict. */
+function NotCheckedTag({ label }: { label: string }) {
+  return (
+    <span className="rounded-pill border border-dashed border-line px-2.5 py-1 text-xs text-muted">
+      {label}
+    </span>
+  );
+}
+
+export function StatusTag({
+  pharmacy,
+  quantityNeeded,
+}: {
+  pharmacy: PharmacyResult;
+  quantityNeeded: number;
+}) {
+  switch (pharmacy.phase) {
     case "queued":
       return <span className="font-mono text-xs text-muted">Queued</span>;
     case "dialing":
@@ -67,20 +89,45 @@ export function StatusTag({ phase }: { phase: CallPhase }) {
           Checking stock <Waveform />
         </span>
       );
-    case "in-stock":
+    case "in-stock": {
+      const qty = pharmacy.quantityAvailable;
+      const partial = qty != null && qty < quantityNeeded;
       return (
-        <span className="flex items-center gap-1.5 rounded-pill bg-teal/10 px-2.5 py-1 text-xs font-medium text-teal animate-check-in">
-          <CheckIcon />
-          In stock
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="flex items-center gap-1.5 rounded-pill bg-teal/10 px-2.5 py-1 text-xs font-medium text-teal animate-check-in">
+            <CheckIcon />
+            {qty != null
+              ? `In stock — ${quantityLabel(qty, pharmacy.quantityUnit)}`
+              : "In stock"}
+          </span>
+          {partial && (
+            <span className="text-[11px] font-medium text-coral-deep">
+              you need {quantityNeeded}
+            </span>
+          )}
         </span>
       );
-    case "out-of-stock":
+    }
+    case "can-order":
+      return (
+        <span className="flex items-center gap-1.5 rounded-pill border border-teal/30 bg-surface px-2.5 py-1 text-xs font-medium text-teal-soft animate-check-in">
+          <ClockIcon />
+          {pharmacy.eta ? `Can order · ${pharmacy.eta}` : "Can order"}
+        </span>
+      );
+    case "no-stock":
       return (
         <span className="flex items-center gap-1.5 rounded-pill bg-line/60 px-2.5 py-1 text-xs font-medium text-muted animate-check-in">
           <CrossIcon />
           No stock
         </span>
       );
+    case "unreached":
+      return <NotCheckedTag label="Couldn't reach" />;
+    case "unverified":
+      return <NotCheckedTag label="Couldn't verify branch" />;
+    case "expired":
+      return <NotCheckedTag label="Not checked in time" />;
   }
 }
 
@@ -91,6 +138,21 @@ function CheckIcon() {
         d="M2.5 6.2 5 8.5 9.5 3.5"
         stroke="currentColor"
         strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <circle cx="6" cy="6" r="4.8" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M6 3.6V6l1.8 1.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

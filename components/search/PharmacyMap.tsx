@@ -86,7 +86,8 @@ export default function PharmacyMap({
           const active =
             pharmacy.phase === "dialing" || pharmacy.phase === "asking";
           const inStock = pharmacy.phase === "in-stock";
-          const outStock = pharmacy.phase === "out-of-stock";
+          const canOrder = pharmacy.phase === "can-order";
+          const noStock = pharmacy.phase === "no-stock";
           return (
             <div
               key={pharmacy.id}
@@ -117,7 +118,13 @@ export default function PharmacyMap({
                   )}
                   <span
                     className={`relative block h-3.5 w-3.5 rounded-full border-2 border-surface ${
-                      outStock ? "bg-line" : active ? "bg-teal" : "bg-muted/50"
+                      noStock
+                        ? "bg-line"
+                        : canOrder
+                          ? "bg-teal-soft"
+                          : active
+                            ? "bg-teal"
+                            : "bg-muted/50"
                     }`}
                   />
                 </>

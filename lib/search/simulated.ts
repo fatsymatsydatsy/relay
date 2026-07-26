@@ -11,11 +11,23 @@ import type {
 /**
  * Scripted stand-in for the real calling product.
  *
- * It replays a realistic round of parallel pharmacy calls on timers so the
- * /search UI can be demoed end to end with no backend. Replace this with an
- * engine backed by the live service (implementing the same SearchEngine
- * interface) once calling is ready — the UI won't change.
+ * It replays a realistic round of pharmacy calls on timers so the /search UI
+ * can be demoed end to end with no backend, covering EVERY state the real
+ * board can show (the same set scripts/seed-fake-board.sql seeds). Replace
+ * with the live engine (1.5) — the UI won't change.
+ *
+ * Timings keep ≤3 calls in dialing/asking at once: the demo must never show
+ * behavior the dispatch invariant forbids (CLAUDE.md; enforced by
+ * tests/sim-concurrency.test.ts).
  */
+
+type Outcome =
+  | { kind: "in-stock"; quantity: number; unit: string }
+  | { kind: "can-order"; eta: string }
+  | { kind: "no-stock" }
+  | { kind: "unreached" }
+  | { kind: "unverified" }
+  | { kind: "expired" };
 
 export interface CallScript {
   id: string;
@@ -26,20 +38,17 @@ export interface CallScript {
   bearing: number;
   hours: string;
   phone: string;
-  startAt: number;
+  /** null = never dialed this round (queued until the search expires). */
+  startAt: number | null;
   dialingMs: number;
   askingMs: number;
-  inStock: boolean;
+  outcome: Outcome;
 }
 
 const TICK_MS = 100;
 const RESOLVE_HOLD_MS = 700;
 
-/** Nearest pharmacies "called" for the demo. Well Pharmacy (0.8mi) is the
- *  nearest with stock; Day Lewis (1.6mi) is a further backup that also has it.
- *  Timings keep ≤3 calls in dialing/asking at once — the demo must never show
- *  behavior the dispatch invariant forbids (CLAUDE.md: ≤3 in flight/search);
- *  tests/sim-concurrency.test.ts enforces this. */
+/** Phones are the Ofcom drama range — never real numbers. */
 export const SCRIPT: CallScript[] = [
   {
     id: "boots-high-st",
@@ -53,7 +62,7 @@ export const SCRIPT: CallScript[] = [
     startAt: 0,
     dialingMs: 1500,
     askingMs: 1700,
-    inStock: false,
+    outcome: { kind: "no-stock" },
   },
   {
     id: "superdrug-station",
@@ -64,10 +73,11 @@ export const SCRIPT: CallScript[] = [
     bearing: 305,
     hours: "Mon–Sat 8:30–19:00",
     phone: "020 7946 0074",
+    // rings out: full dialing window, never answered
     startAt: 450,
-    dialingMs: 1500,
-    askingMs: 1600,
-    inStock: false,
+    dialingMs: 3100,
+    askingMs: 0,
+    outcome: { kind: "unreached" },
   },
   {
     id: "well-london-rd",
@@ -81,7 +91,7 @@ export const SCRIPT: CallScript[] = [
     startAt: 1000,
     dialingMs: 1600,
     askingMs: 2200,
-    inStock: true,
+    outcome: { kind: "in-stock", quantity: 2, unit: "boxes" },
   },
   {
     id: "lloyds-market-sq",
@@ -92,10 +102,10 @@ export const SCRIPT: CallScript[] = [
     bearing: 215,
     hours: "Mon–Sat 9:00–17:30",
     phone: "020 7946 0158",
-    startAt: 3300, // waits for the first line to free up (≤3 in flight)
+    startAt: 3300, // waits for the first line to free (≤3 in flight)
     dialingMs: 1600,
     askingMs: 1800,
-    inStock: false,
+    outcome: { kind: "can-order", eta: "tomorrow morning" },
   },
   {
     id: "day-lewis-bridge",
@@ -106,22 +116,88 @@ export const SCRIPT: CallScript[] = [
     bearing: 345,
     hours: "Mon–Sat 8:00–18:00",
     phone: "020 7946 0203",
-    startAt: 3700, // waits for the second line (≤3 in flight)
+    startAt: 3700,
     dialingMs: 1500,
     askingMs: 2000,
-    inStock: true,
+    outcome: { kind: "in-stock", quantity: 1, unit: "boxes" }, // partial vs 2 needed
+  },
+  {
+    id: "rowlands-church-ln",
+    name: "Rowlands Pharmacy",
+    road: "Church Lane",
+    address: "5 Church Lane",
+    distanceMiles: 1.2,
+    bearing: 80,
+    hours: "Mon–Fri 8:30–18:00",
+    phone: "020 7946 0090",
+    startAt: 4900,
+    dialingMs: 1500,
+    askingMs: 1700,
+    outcome: { kind: "no-stock" },
+  },
+  {
+    id: "jhoots-mill-rd",
+    name: "Jhoots Pharmacy",
+    road: "Mill Road",
+    address: "61 Mill Road",
+    distanceMiles: 1.9,
+    bearing: 250,
+    hours: "Mon–Sat 9:00–18:30",
+    phone: "020 7946 0144",
+    // answers, but it's the wrong branch — verified nothing
+    startAt: 6800,
+    dialingMs: 1400,
+    askingMs: 1400,
+    outcome: { kind: "unverified" },
+  },
+  {
+    id: "cohens-park-st",
+    name: "Cohens Chemist",
+    road: "Park Street",
+    address: "18 Park Street",
+    distanceMiles: 2.2,
+    bearing: 170,
+    hours: "Mon–Fri 9:00–18:00",
+    phone: "020 7946 0177",
+    startAt: 7300,
+    dialingMs: 1500,
+    askingMs: 1600,
+    outcome: { kind: "can-order", eta: "Thursday" },
+  },
+  {
+    id: "tesco-canal-way",
+    name: "Tesco Pharmacy",
+    road: "Canal Way",
+    address: "Unit 2, Canal Way",
+    distanceMiles: 2.6,
+    bearing: 20,
+    hours: "Mon–Sun 8:00–22:00",
+    phone: "020 7946 0199",
+    // never dialed this round: queued all along, expires when time runs out
+    startAt: null,
+    dialingMs: 0,
+    askingMs: 0,
+    outcome: { kind: "expired" },
   },
 ];
 
+const SCRIPT_END = Math.max(
+  ...SCRIPT.filter((c) => c.startAt !== null).map(
+    (c) => (c.startAt as number) + c.dialingMs + c.askingMs,
+  ),
+);
+
 /** Peak number of simultaneously active (dialing/asking) calls in a script —
- *  pure, so the ≤3 invariant is unit-testable. */
+ *  pure, so the ≤3 invariant is unit-testable. Never-dialed rows don't count. */
 export function maxConcurrent(
   script: ReadonlyArray<Pick<CallScript, "startAt" | "dialingMs" | "askingMs">>,
 ): number {
-  const events = script.flatMap((c) => [
-    { at: c.startAt, delta: +1 },
-    { at: c.startAt + c.dialingMs + c.askingMs, delta: -1 },
-  ]);
+  const events = script
+    .filter((c) => c.startAt !== null)
+    .flatMap((c) => [
+      { at: c.startAt as number, delta: +1 },
+      { at: (c.startAt as number) + c.dialingMs + c.askingMs, delta: -1 },
+    ]);
   // ends sort before starts at the same instant: a freed line can be reused
   events.sort((a, b) => a.at - b.at || a.delta - b.delta);
   let active = 0;
@@ -133,20 +209,25 @@ export function maxConcurrent(
   return peak;
 }
 
-const SCRIPT_END = Math.max(
-  ...SCRIPT.map((c) => c.startAt + c.dialingMs + c.askingMs),
-);
-
-function phaseAt(elapsed: number, call: CallScript): PharmacyResult["phase"] {
-  if (elapsed < call.startAt) return "queued";
-  const t = elapsed - call.startAt;
-  if (t < call.dialingMs) return "dialing";
-  if (t < call.dialingMs + call.askingMs) return "asking";
-  return call.inStock ? "in-stock" : "out-of-stock";
+function terminalPhase(outcome: Outcome): PharmacyResult["phase"] {
+  switch (outcome.kind) {
+    case "in-stock":
+      return "in-stock";
+    case "can-order":
+      return "can-order";
+    case "no-stock":
+      return "no-stock";
+    case "unreached":
+      return "unreached";
+    case "unverified":
+      return "unverified";
+    case "expired":
+      return "expired";
+  }
 }
 
-function snapshot(elapsed: number): PharmacyResult[] {
-  return SCRIPT.map((call) => ({
+function resultAt(elapsed: number, call: CallScript, now: number): PharmacyResult {
+  const base: PharmacyResult = {
     id: call.id,
     name: call.name,
     road: call.road,
@@ -155,8 +236,56 @@ function snapshot(elapsed: number): PharmacyResult[] {
     bearing: call.bearing,
     hours: call.hours,
     phone: call.phone,
-    phase: phaseAt(elapsed, call),
-  }));
+    phase: "queued",
+  };
+
+  // Never dialed: queued while the search runs, expired once it settles.
+  if (call.startAt === null) {
+    return elapsed >= SCRIPT_END
+      ? { ...base, phase: "expired", bucket: 4 }
+      : base;
+  }
+
+  if (elapsed < call.startAt) return base;
+  const t = elapsed - call.startAt;
+  if (t < call.dialingMs) return { ...base, phase: "dialing" };
+  if (t < call.dialingMs + call.askingMs) return { ...base, phase: "asking" };
+
+  const resolvedAtMs = now - (elapsed - (call.startAt + call.dialingMs + call.askingMs));
+  const o = call.outcome;
+  switch (o.kind) {
+    case "in-stock":
+      return {
+        ...base,
+        phase: "in-stock",
+        bucket: 1,
+        quantityAvailable: o.quantity,
+        quantityUnit: o.unit,
+        confirmedAt: new Date(resolvedAtMs).toISOString(),
+      };
+    case "can-order":
+      return {
+        ...base,
+        phase: "can-order",
+        bucket: 2,
+        eta: o.eta,
+        confirmedAt: new Date(resolvedAtMs).toISOString(),
+      };
+    case "no-stock":
+      return {
+        ...base,
+        phase: "no-stock",
+        bucket: 3,
+        confirmedAt: new Date(resolvedAtMs).toISOString(),
+      };
+    default:
+      return { ...base, phase: terminalPhase(o), bucket: 4 };
+  }
+}
+
+function snapshot(elapsed: number): PharmacyResult[] {
+  const now = Date.now();
+  return SCRIPT.map((call) => resultAt(elapsed, call, now));
 }
 
 function runTimeline(
@@ -210,7 +339,8 @@ export function createSimulatedEngine(): SearchEngine {
 }
 
 /** The patient's nominated pharmacy for the demo — deliberately not one of the
- *  searched pharmacies, so CONNECT reads as bridging back to "their" pharmacy. */
+ *  searched pharmacies, so CONNECT reads as bridging back to "their" pharmacy.
+ *  (ConnectFlow itself is parked — flagged decision F3.) */
 export const DEMO_NOMINATED_PHARMACY: NominatedPharmacy = {
   name: "Rowlands Pharmacy",
   road: "Church Lane",

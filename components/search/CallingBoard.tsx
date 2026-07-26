@@ -1,4 +1,8 @@
 import type { PharmacyResult, SearchRequest } from "@/lib/search/types";
+import {
+  confirmedAtLabel,
+  sortForBoard,
+} from "@/lib/domain/call-presentation";
 import { StatusDot, StatusTag } from "./CallStatus";
 
 interface CallingBoardProps {
@@ -9,9 +13,18 @@ interface CallingBoardProps {
   simulated?: boolean;
 }
 
-function CallRow({ pharmacy, index }: { pharmacy: PharmacyResult; index: number }) {
+function CallRow({
+  pharmacy,
+  quantityNeeded,
+  index,
+}: {
+  pharmacy: PharmacyResult;
+  quantityNeeded: number;
+  index: number;
+}) {
   const active = pharmacy.phase === "dialing" || pharmacy.phase === "asking";
   const inStock = pharmacy.phase === "in-stock";
+  const confirmed = confirmedAtLabel(pharmacy.confirmedAt);
   return (
     <li
       className={`flex animate-fade-up items-center justify-between gap-3 rounded-[10px] border px-3.5 py-3 transition-all duration-300 ${
@@ -30,11 +43,13 @@ function CallRow({ pharmacy, index }: { pharmacy: PharmacyResult; index: number 
             {pharmacy.name}
           </span>
           <span className="block truncate text-xs text-muted">
-            {pharmacy.road} · {pharmacy.distanceMiles} mi
+            {confirmed
+              ? `confirmed by phone at ${confirmed}`
+              : `${pharmacy.road} · ${pharmacy.distanceMiles} mi`}
           </span>
         </span>
       </div>
-      <StatusTag phase={pharmacy.phase} />
+      <StatusTag pharmacy={pharmacy} quantityNeeded={quantityNeeded} />
     </li>
   );
 }
@@ -45,7 +60,15 @@ export default function CallingBoard({
   resolved,
   simulated = false,
 }: CallingBoardProps) {
+  const ordered = sortForBoard(pharmacies);
   const inStockCount = pharmacies.filter((p) => p.phase === "in-stock").length;
+  const canOrderCount = pharmacies.filter((p) => p.phase === "can-order").length;
+  const notCheckedCount = pharmacies.filter(
+    (p) =>
+      p.phase === "unreached" ||
+      p.phase === "unverified" ||
+      p.phase === "expired",
+  ).length;
   const doseSuffix = request.dose ? ` ${request.dose}` : "";
 
   return (
@@ -71,7 +94,7 @@ export default function CallingBoard({
           </span>
         </div>
         <span className="font-mono text-[11px] text-muted tnum">
-          {request.postcode.toUpperCase()} · {pharmacies.length} calls
+          {request.postcode.toUpperCase()} · {pharmacies.length} pharmacies
         </span>
       </div>
 
@@ -80,12 +103,22 @@ export default function CallingBoard({
         <p className="display text-lg text-ink">
           {request.medication}
           {doseSuffix}
+          {request.quantity > 1 && (
+            <span className="ml-2 align-middle font-sans text-xs font-medium text-muted">
+              × {request.quantity} packs
+            </span>
+          )}
         </p>
       </div>
 
       <ul className="flex flex-col gap-0.5 px-2.5 pb-3 pt-1">
-        {pharmacies.map((pharmacy, i) => (
-          <CallRow key={pharmacy.id} pharmacy={pharmacy} index={i} />
+        {ordered.map((pharmacy, i) => (
+          <CallRow
+            key={pharmacy.id}
+            pharmacy={pharmacy}
+            quantityNeeded={request.quantity}
+            index={i}
+          />
         ))}
       </ul>
 
@@ -98,10 +131,23 @@ export default function CallingBoard({
             <span className="font-medium">
               {inStockCount} {inStockCount === 1 ? "pharmacy has" : "pharmacies have"}
             </span>{" "}
-            your medication in stock.
+            it in stock
+            {canOrderCount > 0 && (
+              <>
+                {" "}
+                · <span className="font-medium">{canOrderCount}</span> can order it
+              </>
+            )}
+            {notCheckedCount > 0 && (
+              <>
+                {" "}
+                · <span className="text-muted">{notCheckedCount} couldn&apos;t be checked</span>
+              </>
+            )}
+            .
           </span>
         ) : (
-          <span>Calling nearby pharmacies. This usually takes under a minute…</span>
+          <span>Calling nearby pharmacies. This usually takes a few minutes…</span>
         )}
       </div>
     </div>

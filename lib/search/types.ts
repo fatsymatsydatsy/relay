@@ -1,9 +1,22 @@
+/**
+ * Full UI vocabulary for one pharmacy call, mirroring the backend state
+ * machine (docs/architecture.md) through lib/domain/call-presentation.ts:
+ * queued/dialing/asking are in-flight; in-stock/can-order/no-stock are the
+ * three verdict kinds (buckets 1–3); unreached/unverified/expired are bucket 4
+ * — NEVER stock verdicts, and styled so they can't be mistaken for one.
+ */
 export type CallPhase =
   | "queued"
   | "dialing"
   | "asking"
   | "in-stock"
-  | "out-of-stock";
+  | "can-order"
+  | "no-stock"
+  | "unreached"
+  | "unverified"
+  | "expired";
+
+export type RankBucket = 1 | 2 | 3 | 4;
 
 export interface SearchRequest {
   medication: string;
@@ -25,6 +38,16 @@ export interface PharmacyResult {
   hours: string;
   phone: string;
   phase: CallPhase;
+  /** Rank tier, set once terminal: 1 in stock · 2 orderable · 3 no stock · 4 couldn't reach/verify. */
+  bucket?: RankBucket;
+  /** Packs physically on the shelf (in-stock verdicts). */
+  quantityAvailable?: number | null;
+  /** Unit the pharmacist used ("boxes", "patches"…), from the verdict. */
+  quantityUnit?: string | null;
+  /** Supplier ETA for can-order verdicts ("tomorrow morning"). */
+  eta?: string | null;
+  /** When the verdict was confirmed by phone (ISO timestamp). */
+  confirmedAt?: string | null;
 }
 
 /** The patient's currently nominated pharmacy — where their prescription lives
