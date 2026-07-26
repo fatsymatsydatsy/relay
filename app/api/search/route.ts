@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createSearchStub } from "@/lib/commands/create_search";
+import { createDemoSearch } from "@/lib/commands/demo_search";
 import { normalizePostcode } from "@/lib/search/geocode";
 
 /**
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { searchId } = await createSearchStub({
+    const { searchId } = await createDemoSearch({
       owner: user.id,
       medication: medication.trim(),
       dose: dose.trim(),
