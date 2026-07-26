@@ -66,14 +66,27 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 
 ---
 
-## Phase 1 — Static UI on fake data (teammate's track, parallel from hour ~1)
+## Phase 1 — Product UI: fold in the teammate's `relay` repo (restructured 26 Jul ~03:15)
 
-*Zero backend risk; pure look-and-feel. All 🧑-gated on fidelity.*
+*Teammate delivered the UI as a **standalone repo** (`~/Downloads/relay`, branded **"Relay"**, Next 14/React 18/Tailwind 3) — a landing page (`/`) + a simulated `/search` experience behind a clean `SearchEngine` seam ("swap the engine, UI unchanged"). Original Phase 1 assumed in-repo UI work, so it's restructured: the fold-in is now explicit step 1.2, old 1.2/1.3/1.4 become 1.3/1.4/1.5 (runbook §UI contract ref updated). **Protocol deviation, stated:** the 🧑 steps 1.3–1.5 park at `[?]` in sequence without waiting for each other's approval — their build halves are one atomic port and Marvin is asleep-adjacent; approvals stay individually gated.*
 
-- [~] **1.1 Fake data seed** 🤖 — script inserts 1 fake search + 8 call rows covering every state and bucket → passes when: rows visible in Supabase Studio.
-- [ ] **1.2 Search form** 🧑 — med (seeded shortage list), dosage, quantity, postcode, radius, NHS/private; disclaimer visible → passes when: 🧑 Marvin + teammate approve on phone AND desktop; submits to a stub.
-- [ ] **1.3 Scoreboard on fake rows** 🧑 — every state visually distinct (queued · ringing · 3 verdict kinds · couldn't-reach · expired), timestamps ("confirmed by phone at 14:32"), partial-quantity display ("1 box — you need 2") → passes when: 🧑 bucket 4 is unmistakably NOT a stock verdict; disclaimer present; teammate + Marvin sign off.
-- [ ] **1.4 Realtime proof** 🤖 + 🧑 — subscribe; manually UPDATE a row in SQL → passes when: board updates < 2s with no refresh (🧑 watches it happen).
+- [~] **1.1 Fake data seed** 🤖 — script inserts fake 24/7 pharmacies + 1 fake search + **10** call rows covering every UI state (queued · dialing · transcript_ready · in-stock · in-stock-partial · orderable · no-stock · unreached · wrong_location · expired) and buckets 1–4 *(criterion updated from "8 rows": expired, partial-stock and transcript_ready rows added so the board can show everything)* → passes when: seed applies clean on the local stack after `db reset` + prove-constraints still 13/13; rows visible in Supabase Studio.
+- [ ] **1.2 Relay fold-in (mechanical port)** 🤖 — vendor landing + `/search` + tokens/fonts/globals into this repo, ported to Next 16 / React 19 (react-leaflet@5; unused Google-Maps variant + dep dropped; teammate `.env.local` NOT copied); waitlist table as a migration; footer disclaimer extended to the required 999/111 text → passes when: `typecheck` + `test` + `build` green; `/` and `/search` render; simulated demo plays end-to-end.
+- [ ] **1.3 Search form** 🧑 *(was 1.2)* — med combobox (shortage-flagged list) · dose · **quantity 1–20 (added — partial-stock display needs it)** · postcode; disclaimer visible; submits to stub `create_search` *(criterion change: radius + NHS/private fields dropped per teammate's shipped design — radius defaults server-side; flagged below)* → passes when: 🧑 Marvin + teammate approve on phone AND desktop.
+- [ ] **1.4 Scoreboard on fake rows** 🧑 *(was 1.3)* — every state visually distinct (queued · calling · checking stock · in stock · can order · no stock · couldn't reach · couldn't verify branch · not checked in time), timestamps ("confirmed by phone at 14:32"), partial-quantity display ("1 box — you need 2") → passes when: 🧑 bucket 4 is unmistakably NOT a stock verdict; disclaimer present; teammate + Marvin sign off.
+- [ ] **1.5 Realtime proof** 🤖 + 🧑 *(was 1.4)* — anonymous sign-in, owner-scoped subscribe to `searches`+`calls`, stub `create_search` command writes fixture rows; manually UPDATE a row in SQL → passes when: 🤖 scripted local check shows the update land; 🧑 Marvin watches the board update < 2s with no refresh.
+
+**UI-merge decisions flagged for Marvin (defaults chosen so nothing blocks; all reversible):**
+
+| # | Decision taken tonight | Needs your call |
+|---|---|---|
+| F1 | UI keeps teammate's **"Relay"** brand; repo/README/docs still say MedFind | Final product name for README + video |
+| F2 | Waitlist count shows **baseline 214 + real signups** (teammate's design; their PRODUCT.md says "not real traction") | Keep for demo, or show real count only |
+| F3 | **ConnectFlow** ("connect me to my pharmacy") is simulated theater | Show in video? Risk: reads as a real call |
+| F4 | Teammate added 3rd parties: **postcodes.io** (was "pending sign-off"), **OSM tiles**, **PostHog** (disabled without key; I strip postcode from its event payload) | Sign off / veto |
+| F5 | Radius + NHS/private dropped from form (teammate's design) | OK, or add back |
+| F6 | Teammate's own Supabase project holds any real waitlist signups so far | Export/merge later |
+| F7 | Google-Maps map variant + `@react-google-maps/api` dropped (dead without an API key); Netlify Forms fallback kept (silently no-ops on Vercel) | OK |
 
 ---
 

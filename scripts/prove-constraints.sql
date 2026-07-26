@@ -8,8 +8,10 @@
 begin;
 
 -- fixtures
+-- display is namespaced TEST-… so the proof also runs cleanly on a seeded DB
+-- (scripts/seed-fake-board.sql owns the real-looking demo names)
 insert into medications (id, name, strength, form, display) values
-  ('00000000-0000-0000-0000-000000000001', 'Creon', '25,000', 'gastro-resistant capsules', 'Creon 25,000 gastro-resistant capsules');
+  ('00000000-0000-0000-0000-000000000001', 'Creon', '25,000', 'gastro-resistant capsules', 'TEST-constraint-proof Creon 25,000');
 insert into pharmacies (ods_code, name, address, postcode, phone, lat, lng, hours) values
   ('TEST1', 'Test Pharmacy A', '1 Test St', 'TE5 1ST', '+447700900001', 51.5, -0.1, '{}');
 insert into searches (id, owner, medication_id, postcode, radius_km, deadline_at) values
