@@ -49,9 +49,9 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
   - [x] 0.2.2 Constraint proof script: attempts 6 forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all are REJECTED by the database itself. ✅ `scripts/prove-constraints.sql` → "ALL 6 FORBIDDEN STATES REJECTED" (commit 2c2467b).
   - **Step success:** schema up + all forbidden-state inserts bounce. ✅
 
-- [ ] **0.3 Deployed shell** 🤖 + 🧑 — **⛔ blocked on Marvin:** (a) `npm i -g vercel` + `vercel login` (or a Vercel token), (b) create the cloud Supabase project and paste its URL + anon + service-role keys. Local stack already proves the schema; cloud is copy-paste.
-  - [ ] 0.3.1 Vercel project + env vars + deploy → passes when: 🤖 prod URL returns 200.
-  - [ ] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded."
+- [~] **0.3 Deployed shell** 🤖 + 🧑 — codex phase-0 review done: 9 findings, all fixed in 0.2b (verdict-leak bypasses, dial_log lifecycle, append-only triggers, E.164, explicit grants, ON_ERROR_STOP, seed glob, attempts 0–3, engines).
+  - [x] 0.3.1 Vercel project + env vars + deploy → passes when: 🤖 prod URL returns 200. ✅ https://medfind-three.vercel.app (project `medfind`, 8 prod env vars set).
+  - [ ] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded." **⛔ blocked: cloud DB has no schema yet — needs `supabase login` from Marvin (or the database password from Settings → Database) so I can push the migration.** Page currently says "Database not connected yet" — honestly.
   - **Step success:** the deployed site provably talks to the database.
 
 - [ ] **0.4 TRACER BULLET — one real call, no logic** 🧑 *(the whole point of Phase 0)*
