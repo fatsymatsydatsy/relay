@@ -116,11 +116,22 @@ export function createLiveEngine(
           },
           body: JSON.stringify({ ...request, engine: serverEngine }),
         });
-        if (!res.ok) {
-          console.error("live engine: create_search failed", res.status);
+        const body = (await res.json().catch(() => ({}))) as {
+          searchId?: string;
+          error?: string;
+        };
+        // 409 = this session already has a live board (4.4 guard). Resume it
+        // rather than dead-ending — the audit found the old code returned on
+        // every non-2xx, so the resume id the API sends was never used.
+        if (!res.ok && !(res.status === 409 && body.searchId)) {
+          console.error("live engine: create_search failed", res.status, body.error);
           return;
         }
-        const { searchId } = (await res.json()) as { searchId: string };
+        const searchId = body.searchId;
+        if (!searchId) {
+          console.error("live engine: create_search returned no searchId");
+          return;
+        }
         if (cancelled) return;
 
         const refetchCalls = async () => {

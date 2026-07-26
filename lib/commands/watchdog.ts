@@ -108,15 +108,25 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
     return true;
   };
 
+  // DEMO boards are inert scenery (audit P1-1): their fixtures deliberately
+  // sit in `dialing`/`transcript_ready` forever, so a watchdog that treats
+  // them as work re-extracts null transcripts, abandons fake calls, and
+  // settles the video fallback board mid-shoot. Every rule below skips them
+  // (`watchdog.demo-inert`).
+  const isDemoSearch = "searches!inner(dial_mode)";
+  const notDemo = (row: { searches?: unknown }) =>
+    (row.searches as { dial_mode?: string } | undefined)?.dial_mode !== "DEMO";
+
   // ── rule 1: stale in-flight ────────────────────────────────────────────────
   const staleBefore = new Date(now.getTime() - staleAfter * 1000).toISOString();
-  const { data: stale } = await db
+  const { data: staleRows } = await db
     .from("calls")
-    .select("id, search_id, conversation_id, claimed_at")
+    .select(`id, search_id, conversation_id, claimed_at, ${isDemoSearch}`)
     .eq("status", "dialing")
     .lte("claimed_at", staleBefore);
+  const stale = (staleRows ?? []).filter(notDemo);
 
-  for (const call of stale ?? []) {
+  for (const call of stale) {
     if (!call.conversation_id) {
       // the POST outcome was ambiguous and no webhook ever named this call
       const age = (now.getTime() - new Date(call.claimed_at).getTime()) / 1000;
@@ -204,12 +214,12 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
 
   // ── rule 2: stuck extraction ──────────────────────────────────────────────
   const extractBefore = new Date(now.getTime() - extractAfter * 1000).toISOString();
-  const { data: stuck } = await db
+  const { data: stuckRows } = await db
     .from("calls")
-    .select("id")
+    .select(`id, ${isDemoSearch}`)
     .eq("status", "transcript_ready")
     .lte("ended_at", extractBefore);
-  for (const call of stuck ?? []) {
+  for (const call of (stuckRows ?? []).filter(notDemo)) {
     await anomaly("watchdog_reextract", { call_id: call.id });
     if (deps.extractFn) await deps.extractFn(call.id);
     summary.reExtracted++;
@@ -229,7 +239,11 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
     await anomaly("watchdog_deadline_sweep", { ...swept });
   }
 
-  const { data: active } = await db.from("searches").select("id").eq("status", "active");
+  const { data: active } = await db
+    .from("searches")
+    .select("id")
+    .eq("status", "active")
+    .neq("dial_mode", "DEMO");
   for (const search of active ?? []) {
     const settled = await settleIfDrained(db, search.id, now);
     if (settled) {

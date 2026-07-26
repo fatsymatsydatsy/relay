@@ -341,6 +341,98 @@ describe("extract_result", () => {
     expect((anomaly ?? []).length).toBeGreaterThan(0);
   });
 
+  it("extraction.transcript-wins — the provider's analysis never reaches the LLM (audit P2-3)", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    const { data: med } = await db
+      .from("medications")
+      .select("id")
+      .eq("display", `ExtractMed-${RUN}`)
+      .single();
+    const { error: phErr } = await db.from("pharmacies").upsert(
+      {
+        ods_code: ODS(8),
+        name: "Extract Pharmacy analysis",
+        address: "8 Extract Row",
+        postcode: "X3 4ST",
+        phone: `+44770${Math.floor(Math.random() * 900) + 100}481`,
+        lat: 58.8,
+        lng: 3.5,
+        hours: { mon: [["00:00", "24:00"]] },
+        source: "dev_test",
+      },
+      { onConflict: "ods_code" },
+    );
+    if (phErr) throw new Error(phErr.message);
+    const { data: search, error: sErr } = await db
+      .from("searches")
+      .insert({
+        owner: crypto.randomUUID(),
+        medication_id: med!.id,
+        quantity_needed: 1,
+        postcode: "X3 4ST",
+        radius_km: 5,
+        status: "active",
+        deadline_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      })
+      .select("id")
+      .single();
+    if (sErr) throw new Error(sErr.message);
+
+    // the exact hazard: the provider's own summary CONTRADICTS the transcript
+    const { data: call, error: cErr } = await db
+      .from("calls")
+      .insert({
+        search_id: search!.id,
+        pharmacy_ods: ODS(8),
+        status: "transcript_ready",
+        is_bench: false,
+        transcript: {
+          transcript: [
+            { role: "agent", message: "Do you have it in stock?" },
+            { role: "user", message: "I really couldn't say, the system is down." },
+          ],
+          analysis: {
+            transcript_summary: "PROVIDER SUMMARY: medication is available, two boxes in stock",
+            call_successful: "success",
+          },
+        },
+        ended_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (cErr) throw new Error(cErr.message);
+
+    let promptSeen = "";
+    const llm: ChatJsonFn = async ({ user }) => {
+      promptSeen = user;
+      return JSON.stringify({
+        ...base,
+        call_ref: call!.id,
+        outcome: "completed",
+        location_confirmed: "yes",
+        stock_status: "unclear", // what the TRANSCRIPT supports
+      });
+    };
+    const outcome = await extractResult(call!.id, { db, llm });
+
+    // the summary never reached the model…
+    expect(promptSeen).toContain("couldn't say");
+    expect(promptSeen).not.toContain("PROVIDER SUMMARY");
+    expect(promptSeen).not.toContain("two boxes in stock");
+    expect(promptSeen).not.toContain("call_successful");
+    // …and the honest verdict stands
+    expect(outcome.bucket).toBe(4);
+
+    // the analysis is still preserved as service-only evidence
+    const { data: stored } = await db
+      .from("calls")
+      .select("transcript")
+      .eq("id", call!.id)
+      .single();
+    expect(JSON.stringify(stored?.transcript)).toContain("PROVIDER SUMMARY");
+  });
+
   it("bench.exhaustion-promotes — total extraction failure ALSO promotes the bench (audit P1-3)", async () => {
     if (!stackUp) return expect.soft(true).toBe(true);
 

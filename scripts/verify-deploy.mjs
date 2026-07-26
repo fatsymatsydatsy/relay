@@ -82,6 +82,43 @@ const check = (name, ok, detail) => {
   );
 }
 
+// 5b. Phase 4 RPCs exist AND are anon-denied (42501 = present + locked;
+// PGRST202 = missing = migration didn't land). Probing as anon never executes.
+for (const fn of ["settle_expired_searches", "flip_cancel_non_terminal"]) {
+  const { error } = await anon.rpc(fn, { p_at: new Date().toISOString() });
+  const code = error?.code ?? "none";
+  check(
+    `${fn} live + DENIED to anon`,
+    code === "42501",
+    code === "PGRST202" ? "FUNCTION MISSING — migration not applied" : `refused: ${code}`,
+  );
+}
+
+// 5c. the watchdog route: fail-closed 401s, then one REAL authorized tick
+// (same op as the cron; sweeps any past-deadline boards — intended behavior)
+{
+  const url = "https://medfind-three.vercel.app/api/internal/watchdog";
+  const no = await fetch(url, { method: "POST" });
+  const wrong = await fetch(url, {
+    method: "POST",
+    headers: { "x-internal-secret": "wrong-value-1234567890" },
+  });
+  check("watchdog route 401 without secret", no.status === 401, `HTTP ${no.status}`);
+  check("watchdog route 401 with wrong secret", wrong.status === 401, `HTTP ${wrong.status}`);
+  if (env.INTERNAL_SECRET) {
+    const ok = await fetch(url, {
+      method: "POST",
+      headers: { "x-internal-secret": env.INTERNAL_SECRET },
+    });
+    const body = await ok.json().catch(() => ({}));
+    check(
+      "watchdog tick runs with the real secret",
+      ok.status === 200 && typeof body.settledSearches === "number",
+      `HTTP ${ok.status} ${JSON.stringify(body).slice(0, 140)}`,
+    );
+  }
+}
+
 // 6. REAL-pool data state: what a REAL search may see vs what it must never see
 {
   const { data, error } = await service

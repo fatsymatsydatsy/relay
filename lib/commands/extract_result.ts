@@ -75,13 +75,22 @@ export async function extractResult(
     .eq("id", search.medication_id)
     .single();
 
+  // ONLY the transcript turns reach the model (audit P2-3). The stored object
+  // also carries the provider's own `analysis` summary — feeding that to the
+  // extractor contradicts the prompt's "transcript is truth" rule and lets a
+  // provider hallucination ("medication available") outvote a pharmacist who
+  // confirmed nothing (`extraction.transcript-wins`). The analysis stays in
+  // the append-only row as service-only evidence.
+  const stored = call.transcript as { transcript?: unknown } | null;
+  const transcriptTurns = stored?.transcript ?? stored ?? null;
+
   const userPrompt = extractionUserPrompt({
     callRef: call.id,
     medicationDisplay: medication?.display ?? "the medication",
     quantityNeeded: search.quantity_needed,
     expectedPharmacyName: pharmacy.name,
     expectedStreet: pharmacy.address,
-    transcript: call.transcript,
+    transcript: transcriptTurns,
   });
 
   let attempts = call.extraction_attempts ?? 0;
