@@ -133,6 +133,8 @@ const res = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${AGENT_ID}`
           },
         },
       },
+      // Marvin 26 Jul: back to Mark (Natural Conversations)
+      tts: { voice_id: "UgBBYS2sOqTuMpoF3BR0" },
       conversation: { max_duration_seconds: 300 },
       // v1.3 turn-taking: wait longer before assuming the floor (shelf
       // checks are silent), and don't let platform silence-detection kill a
