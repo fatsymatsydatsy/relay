@@ -135,7 +135,7 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 
 ## Phase 4 — Hardening: the second risk zone (~1.5h)
 
-- [ ] **4.1 settle + expiry** 🤖 — drain/20-min settle; children → `expired`; claim gates on active search → passes when: simulated-timeout test expires queued children; a late webhook records data but never triggers a dial.
+- [~] **4.1 settle + expiry** 🤖 — drain/20-min settle; children → `expired`; claim gates on active search → passes when: simulated-timeout test expires queued children; a late webhook records data but never triggers a dial. *(3.7 already landed the drain-settle RPC + the claim's 20-min age gate; 4.1 adds the deadline sweep `settle_expired_searches` — advisory-locked, expires queued children of past-deadline searches, completes them once nothing is in flight — and proves the late-webhook path end to end.)*
 - [ ] **4.2 Watchdog (pg_cron)** 🤖 — 3 rules: stale in-flight → reconcile via `GET /conversations/{id}`; stuck `transcript_ready` → re-extract; dead-quiet search → settle. Anomaly log on every action → passes when: `watchdog.reconcile`: a deliberately-dropped webhook is rescued < 90s; a stuck transcript re-extracts; actions logged.
 - [ ] **4.3 Anonymous auth + RLS** 🤖 + 🧑 — `signInAnonymously`, `owner` scoping, transcripts excluded from client grants → passes when: 🤖 `rls.two-sessions`: session B cannot select/subscribe to session A's rows; 🧑 quick two-browser check confirms.
 - [ ] **4.4 Abuse guards** 🤖 — 1 active search per session/IP · `INTERNAL_SECRET` on internal routes · `DIALING_ENABLED` kill switch inside the claim path → passes when: scripted 2nd search → rejected; internal route w/o secret → 401; switch OFF → dispatch claims nothing.
