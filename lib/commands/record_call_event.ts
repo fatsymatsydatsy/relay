@@ -26,7 +26,7 @@ export interface RecordCallEventInput {
 export interface RecordDeps {
   db?: SupabaseClient;
   /** invoked after a transcript lands (3.4's extract_result). */
-  extractFn?: (callId: string) => Promise<void>;
+  extractFn?: (callId: string) => Promise<unknown>;
   /** invoked whenever a line frees (3.2's dispatch). */
   dispatchFn?: () => Promise<unknown>;
   now?: Date;
