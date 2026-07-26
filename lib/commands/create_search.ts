@@ -192,7 +192,7 @@ export async function createSearch(
         radius_km: radiusKm,
         status: "complete",
         dial_mode: dialMode,
-        deadline_at: new Date(now.getTime() + 20 * 60_000).toISOString(),
+        deadline_at: new Date(now.getTime() + 15 * 60_000).toISOString(),
         settled_at: now.toISOString(),
       })
       .select("id")
@@ -226,7 +226,7 @@ export async function createSearch(
       radius_km: radiusKm,
       status: "active",
       dial_mode: dialMode,
-      deadline_at: new Date(now.getTime() + 20 * 60_000).toISOString(),
+      deadline_at: new Date(now.getTime() + 15 * 60_000).toISOString(),
     })
     .select("id")
     .single();

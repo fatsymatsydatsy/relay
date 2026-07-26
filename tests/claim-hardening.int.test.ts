@@ -254,7 +254,7 @@ describe("3.7 claim hardening", () => {
     expect(still?.status).toBe("queued");
   });
 
-  it("a search older than its 20-minute window claims nothing (audit P1-5)", async () => {
+  it("a search older than its deadline window claims nothing (audit P1-5)", async () => {
     if (!stackUp) return expect.soft(true).toBe(true);
 
     const searchId = await mkSearch({

@@ -150,7 +150,7 @@ export async function promoteBench(db: SupabaseClient, searchId: string): Promis
 /**
  * Drain settle: nothing in flight and nothing (non-bench) left to dial →
  * expire leftover bench rows and complete the search. Atomic SQL on the same
- * advisory lock as the claim and promotion (3.7 P1-3). The 20-minute deadline
+ * advisory lock as the claim and promotion (3.7 P1-3). The 15-minute deadline
  * path belongs to settle_search (4.1).
  */
 export async function settleIfDrained(

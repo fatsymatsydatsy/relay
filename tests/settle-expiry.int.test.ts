@@ -8,7 +8,7 @@ import type { OutboundCaller } from "@/lib/integrations/elevenlabs";
  * 4.1 settle + expiry — LOCAL stack.
  *
  * The deadline sweep (`settle_expired_searches`, advisory-locked like every
- * other writer): a search past its 20-minute deadline_at gets every QUEUED
+ * other writer): a search past its deadline_at (15 min) gets every QUEUED
  * child (bench included) expired; the search completes once nothing is in
  * flight. In-flight rows are never killed — their webhooks still record
  * honest data, but nothing new ever dials (claim age gate + search-active

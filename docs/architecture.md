@@ -30,7 +30,7 @@ flowchart LR
 | `dispatch` | search created · any call terminal · watchdog | ONE claim inside `pg_advisory_xact_lock`: ≤3/search, ≤GLOBAL_CAP(8), 1-hour number rule, open now (Europe/London), search active, fairness (fewest in-flight first) · dead call → promote next bench pharmacy · snapshot dial_mode + numbers · POST to ElevenLabs · mark `dialing` | interprets |
 | `record_call_event` | ElevenLabs webhook | verify HMAC (ALWAYS 200 — even on failure, log-and-drop; a 5xx streak trips provider auto-disable) · body cap 1MB · persist raw_body before parsing · dedupe · advance status · `waitUntil()`: dispatch + extract + settle | interprets |
 | `extract_result` | transcript stored | stored transcript → OpenAI `gpt-5.4-mini` (escalate `gpt-5.6-sol` after 2 schema failures; 3rd failure → terminal `extraction_failed`, honest bucket 4) → verdict + rank bucket · fan-out to waiting same-pharmacy+med rows | dials |
-| settle family (4.1/4.5): `settle_if_drained` · `settle_expired_searches` · `flip_cancel_non_terminal` (SQL RPCs, advisory-locked; invoked by record_call_event/extract_result/watchdog/flip script) | any call terminal · watchdog tick · operator flip | no pending calls OR 20 min elapsed → search complete + leftover `queued` children → `expired`; the FLIP sweep alone also expires in-flight rows | drain/deadline settles never cancel in-flight calls |
+| settle family (4.1/4.5): `settle_if_drained` · `settle_expired_searches` · `flip_cancel_non_terminal` (SQL RPCs, advisory-locked; invoked by record_call_event/extract_result/watchdog/flip script) | any call terminal · watchdog tick · operator flip | no pending calls OR 15 min elapsed → search complete + leftover `queued` children → `expired`; the FLIP sweep alone also expires in-flight rows | drain/deadline settles never cancel in-flight calls |
 | `seed_pharmacies` | manual, build time | NHS/manual list → normalize (E.164, hours sessions) → upsert by ODSCode | runs during a search |
 | `check_capacity` | search form (P2, likely cut) | read-only queue-wait estimate | writes |
 
@@ -89,7 +89,7 @@ Radius = candidate pool. Step 1 throw-out: closed now or closing within 1h → n
 
 ## Capacity math (3.5-min avg calls, user-confirmed)
 
-First result ≈ 4 min · 6 answered ≈ 8–10 min · 20-min ÷ 3.5 ≈ 5 waves × 3 = ~15 dial slots max/search · cost ≈ $0.35–0.40/completed call, $2–3/search · at cap 8: ~2.3 calls/min ≈ ~22 searches/hr, ~7 simultaneous before overload.
+First result ≈ 4 min · 6 answered ≈ 8–10 min · 15-min ÷ 3.5 ≈ 4 waves × 3 = 12 dial slots max/search (matches the attempt ceiling) · cost ≈ $0.35–0.40/completed call, $2–3/search · at cap 8: ~2.3 calls/min ≈ ~22 searches/hr, ~7 simultaneous before overload.
 
 ## When it breaks
 
