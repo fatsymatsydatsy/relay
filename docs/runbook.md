@@ -1,16 +1,19 @@
-# Runbook — submission day (Sat 26 Jul 2026, deadline 12:00)
+# Runbook — submission day (SUNDAY 26 Jul 2026, deadline 12:00)
+
+*(Weekday corrected 26 Jul ~07:30 — this file said "Sat". **It's Sunday**: most independents are closed, supermarket pharmacies typically run ~10:00–16:00. The seeder's per-pharmacy TODAY-hours table is the source of truth for what can actually dial, and the verification run may need to slide toward the first Sunday openings.)*
 
 Submission = GitHub repo + demo video ≤ 60 seconds. Marking: Idea /10 · Design /10 (must not look AI-generated) · Code quality /10 (reviews in `docs/review/` are the exhibit) · Demo /10 (1-min cap) + bonus real users (honest recruitment only) + bonus sponsor tools (Claude Code built it; OpenAI credits run extraction).
 
-## Morning schedule (pharmacies open ~08:30–09:00)
+## Morning schedule (SUNDAY hours — check the seeder's dialable column)
 
-1. **08:15** — site up, `DIALING_ENABLED` still off for REAL, last night's test data archived.
-2. **08:30** — teammates spot-call the demo pharmacies ("open today? right branch?") → set `verified`.
-3. **09:00** — flip `DIAL_MODE=REAL` (flip auto-cancels non-terminal rows) → ONE verification search, everyone watching → archive logs to `evidence/`.
-4. **09:15–10:15** — ⚠️ **THE 65-MINUTE RULE**: do NOT touch the same pharmacies again — the 1-hour politeness lock + cache would make the video run queue zero live calls (looks faked). Use the window for README + video B-roll.
-5. **10:20** — **the video run**: fresh search, record. Backup = disjoint pharmacy set (adjacent postcode).
-6. **10:45** — real-users bonus (stretch): 2–3 family/friends run a search on their phones; screenshot + one honest line on recruitment.
-7. **11:00** — repo final push, README check, cut video to ≤60s, upload. **11:45 submit.**
+1. **08:00** — seed real B5 pharmacies from the NHS API (5.0): `npm run seed:nhs -- --postcode "B5 4BU" --env int` (key in `.env.local` as `NHS_DOHS_API_KEY`; no key yet → hand-fill `tests/fixtures/nhs-organisations-sample.json`-shaped JSON from nhs.uk and use `--from-file`). Rows land `verified=false` — nothing can dial yet. Read the printed TODAY column: pick ≥8 with real Sunday hours.
+2. **08:15** — site up, `DIALING_ENABLED` still off for REAL, last night's test data archived.
+3. **08:30** — teammates spot-call the demo pharmacies ("open today? right branch?") → flip with `npm run seed:nhs -- --verify ODS1,ODS2,…`.
+4. **09:00** — flip `DIAL_MODE=REAL` (flip auto-cancels non-terminal rows) → ONE verification search, everyone watching → archive logs to `evidence/`. ⚠️ Sunday: if the seeder shows nothing DIALABLE before ~10:00, slide this to the first real openings and compress the politeness window against the video run — the disjoint-set backup (below) becomes plan A for the video.
+5. **09:15–10:15** — ⚠️ **THE 65-MINUTE RULE**: do NOT touch the same pharmacies again — the 1-hour politeness lock + cache would make the video run queue zero live calls (looks faked). Use the window for README + video B-roll.
+6. **10:20** — **the video run**: fresh search, record. Backup = disjoint pharmacy set (adjacent postcode).
+7. **10:45** — real-users bonus (stretch): 2–3 family/friends run a search on their phones; screenshot + one honest line on recruitment.
+8. **11:00** — repo final push, README check, cut video to ≤60s, upload. **11:45 submit.**
 
 ## 60-second video shot list
 

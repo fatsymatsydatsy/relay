@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "seed:nhs": "tsx scripts/seed-nhs-pharmacies.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
@@ -29,6 +30,7 @@
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.1",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
