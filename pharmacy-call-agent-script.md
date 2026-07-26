@@ -1,6 +1,6 @@
 # pharmacy-call-agent-script.md — Relay voice agent behavior spec
 
-**Status:** v1.3 — 26 Jul 2026, from **Marvin's transcript review of the first REAL run** (W2 2DS). This is the authoritative spec the PRD points to. v1.3 rulings (Marvin's words): the agent must LISTEN FIRST — no talking over the callee's greeting (technically: empty `first_message`); never "sorry to bother you" — this is a normal trade call; a greeting that names the pharmacy IS the branch check — don't re-ask; never speak sentences at an IVR — listen silently, press the keypad option; never end the call while the human is still checking stock. (v1.2 history: no retries/bench model, honest-if-asked identity, quantity never disqualifies, hold-ask removed.)
+**Status:** v1.3 — 26 Jul 2026, from **Marvin's transcript review of the first REAL run** (W2 2DS). Agent LLM: **Claude Haiku (`claude-haiku-4-5`, temp 0)** — Marvin's ruling after role-play showed `gemini-3.1-flash-lite` re-asking answered questions and never hanging up. This is the authoritative spec the PRD points to. v1.3 rulings (Marvin's words): the agent must LISTEN FIRST — no talking over the callee's greeting (technically: empty `first_message`); never "sorry to bother you" — this is a normal trade call; a greeting that names the pharmacy IS the branch check — don't re-ask; never speak sentences at an IVR — listen silently, press the keypad option; never end the call while the human is still checking stock. (v1.2 history: no retries/bench model, honest-if-asked identity, quantity never disqualifies, hold-ask removed.)
 
 ---
 
@@ -64,6 +64,8 @@ flowchart TD
 > "Great — I'm an assistant calling on behalf of a patient. Do you currently have **{{medication}}** in stock?"
 
 - Always the full medication name + strength + form. 25,000 is not 10,000.
+- **The answer often contains the amount** ("yes, we've got two boxes") — that answers both questions at once; nothing left to ask, go straight to thanks + end. The "roughly how much" clarifier exists ONLY for a bare "yes" with no amount (v1.3, from role-play).
+- **Didn't catch something?** "I'm sorry — I didn't quite get that, could you say that again?" — at most TWICE per call; after that, treat the point as unclear, thank, end. Never guess at an answer you didn't hear (v1.3).
 - **Quantity never disqualifies.** If they have *any* stock, that's a win — for shortage meds, one box in stock is gold. The agent asks amount as a clarification ("roughly how much do you have?"), records it, and never says "that's not enough." Partial stock reports as IN STOCK with the amount; the app shows "in stock — 1 box (you need 2)."
 
 ### The quiet period (critical — hardened in v1.3)
