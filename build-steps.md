@@ -97,8 +97,8 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 *Test pyramid base: the rules live here, no network, no UI. All 🤖.*
 
 - [x] **2.1 Opening-hours module** 🤖 ✅ `lib/domain/opening-hours.ts`, 12/12 incl. `hours.bst-boundary` both directions (July 17:30 UTC = 18:30 London → closed; January → open but fails the 1h stay-open rule), lunch gap, 24:00-rollover for 24/7, junk-hours-never-dial, weekly-minutes size proxy + nextOpening for the zero-open path.
-- [~] **2.2 Portfolio scorer** 🤖 — throw-out step → score (history/size/distance/answered) → constrained pick → passes when: `never >2 per chain` test green, ≥2 independents when available, closed/closing-soon always excluded, deterministic on fixture data.
-- [ ] **2.3 Verdict schema + buckets** 🤖 — zod schema mirroring call-script §5 + bucket mapper → passes when: fixture verdicts validate; forbidden combos rejected; `bucket.wrong-location` green (wrong branch can never be buckets 1–3).
+- [x] **2.2 Portfolio scorer** 🤖 ✅ `lib/domain/portfolio.ts`, 9/9: ≤2/chain (independents uncapped), ≥2 independents + ≥1 supermarket when available (swaps respect the chain cap AND each other), closed/closing-soon thrown out, weights 0.35/0.25/0.25/0.15, deterministic under input shuffle, ranked bench.
+- [~] **2.3 Verdict schema + buckets** 🤖 — zod schema mirroring call-script §5 + bucket mapper → passes when: fixture verdicts validate; forbidden combos rejected; `bucket.wrong-location` green (wrong branch can never be buckets 1–3).
 - [ ] **2.4 Dial resolution** 🤖 — `resolveDialNumber()` DEV_TEST/REAL + per-claim snapshot fields → passes when: both modes unit-tested; REAL refuses unverified pharmacies.
 
 ---
