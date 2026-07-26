@@ -10,25 +10,12 @@
  * (or `vercel env`) and redeployed. 3.7's mode isolation means stale rows
  * could never dial across modes anyway; this is hygiene + a visible ritual.
  */
-import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { loadEnvLocal } from "./env-local";
 
 const LOCAL_URL = "http://127.0.0.1:55521";
 const LOCAL_SERVICE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
-
-function loadEnvLocal(): Record<string, string> {
-  try {
-    return Object.fromEntries(
-      readFileSync(new URL("../.env.local", import.meta.url), "utf8")
-        .split("\n")
-        .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
-        .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
-    );
-  } catch {
-    return {};
-  }
-}
 
 async function main() {
   const local = process.argv.includes("--local");

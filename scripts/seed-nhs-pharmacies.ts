@@ -23,6 +23,7 @@
  */
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { loadEnvLocal } from "./env-local";
 import {
   normalizeNhsOrganisation,
   type NhsOrganisation,
@@ -43,19 +44,6 @@ function arg(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 const has = (name: string) => process.argv.includes(`--${name}`);
-
-function loadEnvLocal(): Record<string, string> {
-  try {
-    return Object.fromEntries(
-      readFileSync(new URL("../.env.local", import.meta.url), "utf8")
-        .split("\n")
-        .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
-        .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
-    );
-  } catch {
-    return {};
-  }
-}
 
 async function main() {
   const env = loadEnvLocal();

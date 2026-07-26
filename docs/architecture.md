@@ -30,7 +30,7 @@ flowchart LR
 | `dispatch` | search created · any call terminal · watchdog | ONE claim inside `pg_advisory_xact_lock`: ≤3/search, ≤GLOBAL_CAP(8), 1-hour number rule, open now (Europe/London), search active, fairness (fewest in-flight first) · dead call → promote next bench pharmacy · snapshot dial_mode + numbers · POST to ElevenLabs · mark `dialing` | interprets |
 | `record_call_event` | ElevenLabs webhook | verify HMAC (ALWAYS 200 — even on failure, log-and-drop; a 5xx streak trips provider auto-disable) · body cap 1MB · persist raw_body before parsing · dedupe · advance status · `waitUntil()`: dispatch + extract + settle | interprets |
 | `extract_result` | transcript stored | stored transcript → OpenAI `gpt-5.4-mini` (escalate `gpt-5.6-sol` after 2 schema failures; 3rd failure → terminal `extraction_failed`, honest bucket 4) → verdict + rank bucket · fan-out to waiting same-pharmacy+med rows | dials |
-| `settle_search` | any call terminal · watchdog | no pending calls OR 20 min elapsed → search complete + leftover `queued` children → `expired` | cancels in-flight calls |
+| settle family (4.1/4.5): `settle_if_drained` · `settle_expired_searches` · `flip_cancel_non_terminal` (SQL RPCs, advisory-locked; invoked by record_call_event/extract_result/watchdog/flip script) | any call terminal · watchdog tick · operator flip | no pending calls OR 20 min elapsed → search complete + leftover `queued` children → `expired`; the FLIP sweep alone also expires in-flight rows | drain/deadline settles never cancel in-flight calls |
 | `seed_pharmacies` | manual, build time | NHS/manual list → normalize (E.164, hours sessions) → upsert by ODSCode | runs during a search |
 | `check_capacity` | search form (P2, likely cut) | read-only queue-wait estimate | writes |
 
@@ -42,6 +42,8 @@ stateDiagram-v2
     queued --> dialing: dispatch claims, advisory-locked
     queued --> skipped: closed at dial time
     queued --> expired: search settled first
+    dialing --> expired: operator flip sweep only (4.5)
+    transcript_ready --> expired: operator flip sweep only (4.5)
     dialing --> transcript_ready: post_call_transcription webhook
     dialing --> unreached: call_initiation_failure webhook
     dialing --> unreached: watchdog reconcile, no provider record
@@ -106,7 +108,7 @@ First result ≈ 4 min · 6 answered ≈ 8–10 min · 20-min ÷ 3.5 ≈ 5 waves
 
 ## Security/privacy
 
-Anonymous sign-in (`signInAnonymously`) + `searches.owner` + RLS owner-scoped reads; raw transcripts excluded from client column grants; call_events/dial_log/anomalies have NO client access. Postcode only, no PII. Rate limit: 1 active search per identity/IP. `INTERNAL_SECRET` header on internal routes. `DIALING_ENABLED` kill switch inside the claim path. DEV_TEST reroutes dials to team phones via `resolveDialNumber()` ONLY — politeness rules never bypassed; fake 24/7 seed pharmacies do the work; mode flip cancels all non-terminal rows.
+Anonymous sign-in (`signInAnonymously`) + `searches.owner` + RLS owner-scoped reads; raw transcripts excluded from client column grants; call_events/dial_log/anomalies have NO client access. Postcode only, no PII. Rate limit: 1 active search per session (owner uid — DB-enforced by the partial unique index `searches_one_active_per_owner`); IP-level abuse is bounded upstream by Supabase's anonymous sign-in rate limit (30/hour/IP). `INTERNAL_SECRET` header on internal routes. `DIALING_ENABLED` kill switch inside the claim path. DEV_TEST reroutes dials to team phones via `resolveDialNumber()` ONLY — politeness rules never bypassed; fake 24/7 seed pharmacies do the work; mode flip cancels all non-terminal rows.
 
 ## Design history
 

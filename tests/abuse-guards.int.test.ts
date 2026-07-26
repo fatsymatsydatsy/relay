@@ -78,6 +78,35 @@ describe("4.4 abuse guards", () => {
     expect(searches).toHaveLength(1);
   });
 
+  it("CONCURRENT submits collapse to one search (the DB owns the invariant)", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    const owner = crypto.randomUUID();
+    const input = { owner, medication: MED, dose: "", quantity: 1, postcode: "A4 4ST" };
+    // both fire together: both pass the SELECT pre-check; the partial unique
+    // index searches_one_active_per_owner must reject the loser (23505 →
+    // active_search_exists)
+    const results = await Promise.allSettled([
+      createSearch(input, { db, geocode: fakeGeocode }),
+      createSearch(input, { db, geocode: fakeGeocode }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(String(rejected[0].reason)).toContain("active_search_exists");
+
+    const { data: searches } = await db
+      .from("searches")
+      .select("id")
+      .eq("owner", owner)
+      .eq("status", "active");
+    expect(searches).toHaveLength(1);
+  });
+
   it("a DEMO board never blocks the same session's live search", async () => {
     if (!stackUp) return expect.soft(true).toBe(true);
 

@@ -66,16 +66,23 @@ export async function createSearch(
     ((process.env.DIAL_MODE ?? "DEV_TEST") as "DEV_TEST" | "REAL");
 
   // abuse guard (4.4): one live search per session at a time — a second
-  // submit resumes the running board instead of dialing more pharmacies
-  const { data: existing } = await db
-    .from("searches")
-    .select("id")
-    .eq("owner", input.owner)
-    .eq("status", "active")
-    .neq("dial_mode", "DEMO")
-    .limit(1)
-    .maybeSingle();
-  if (existing) throw new Error(`active_search_exists:${existing.id}`);
+  // submit resumes the running board instead of dialing more pharmacies.
+  // The pre-check is the fast path; the DATABASE owns the invariant via the
+  // partial unique index searches_one_active_per_owner (concurrent submits
+  // collapse to one insert — the loser surfaces later as 23505).
+  const findActiveSearch = async (): Promise<string | null> => {
+    const { data } = await db
+      .from("searches")
+      .select("id")
+      .eq("owner", input.owner)
+      .eq("status", "active")
+      .neq("dial_mode", "DEMO")
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  };
+  const preExisting = await findActiveSearch();
+  if (preExisting) throw new Error(`active_search_exists:${preExisting}`);
 
   const origin = await geocode(input.postcode);
   if (!origin) throw new Error("geocode_failed");
@@ -208,6 +215,10 @@ export async function createSearch(
     })
     .select("id")
     .single();
+  if (searchError?.code === "23505") {
+    // lost a concurrent-submit race — the index held the invariant
+    throw new Error(`active_search_exists:${(await findActiveSearch()) ?? "unknown"}`);
+  }
   if (searchError || !search) {
     throw new Error(`search insert: ${searchError?.message ?? "no row"}`);
   }

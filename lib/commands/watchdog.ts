@@ -4,8 +4,11 @@ import {
   elevenLabsGetConversation,
   type ConversationLookup,
 } from "@/lib/integrations/elevenlabs";
-import { recordCallEvent } from "@/lib/commands/record_call_event";
-import { settleIfDrained, promoteBench } from "@/lib/commands/record_call_event";
+import {
+  recordCallEvent,
+  settleIfDrained,
+  promoteBench,
+} from "@/lib/commands/record_call_event";
 
 /**
  * watchdog (4.2) — the safety net for everything the event flow can drop.
@@ -50,6 +53,7 @@ export interface WatchdogSummary {
   reconciledDone: number;
   reconciledFailed: number;
   reconciledGone: number;
+  abandoned: number;
   ambiguous: number;
   reExtracted: number;
   expiredCalls: number;
@@ -60,7 +64,9 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
   const db = deps.db ?? serviceClient();
   const now = deps.now ?? new Date();
   const conversations = deps.conversations ?? elevenLabsGetConversation;
-  const staleAfter = deps.staleAfterSeconds ?? 120;
+  // 30s + the 60s cron cadence keeps every rescue inside the <90s criterion;
+  // a young-but-live call just answers "in progress" and is left alone
+  const staleAfter = deps.staleAfterSeconds ?? 30;
   const extractAfter = deps.extractAfterSeconds ?? 90;
   const abandonAfter = deps.abandonAfterSeconds ?? 600;
 
@@ -68,13 +74,39 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
     reconciledDone: 0,
     reconciledFailed: 0,
     reconciledGone: 0,
+    abandoned: 0,
     ambiguous: 0,
     reExtracted: 0,
     expiredCalls: 0,
     settledSearches: 0,
   };
-  const anomaly = (kind: string, detail: Record<string, unknown>) =>
-    db.from("anomalies").insert({ kind, detail });
+  const anomaly = async (kind: string, detail: Record<string, unknown>) => {
+    const { error } = await db.from("anomalies").insert({ kind, detail });
+    // best-effort by design (a logging failure must never kill the tick) —
+    // but never silent
+    if (error) console.error(`[watchdog] anomaly insert failed (${kind})`, error.message);
+  };
+
+  /** shared terminal path: no provider record / abandoned → unreached,
+   *  bench steps up, line refills, search may settle */
+  const markUnreachedAndRefill = async (
+    call: { id: string; search_id: string },
+    kind: string,
+    detail: Record<string, unknown>,
+  ): Promise<boolean> => {
+    const { data: updated } = await db
+      .from("calls")
+      .update({ status: "unreached", rank_bucket: 4, ended_at: now.toISOString() })
+      .eq("id", call.id)
+      .eq("status", "dialing")
+      .select("id");
+    if (!updated?.length) return false;
+    await anomaly(kind, { call_id: call.id, ...detail });
+    await promoteBench(db, call.search_id);
+    if (deps.dispatchFn) await deps.dispatchFn();
+    await settleIfDrained(db, call.search_id, now);
+    return true;
+  };
 
   // ── rule 1: stale in-flight ────────────────────────────────────────────────
   const staleBefore = new Date(now.getTime() - staleAfter * 1000).toISOString();
@@ -89,18 +121,8 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
       // the POST outcome was ambiguous and no webhook ever named this call
       const age = (now.getTime() - new Date(call.claimed_at).getTime()) / 1000;
       if (age >= abandonAfter) {
-        const { data: updated } = await db
-          .from("calls")
-          .update({ status: "unreached", rank_bucket: 4, ended_at: now.toISOString() })
-          .eq("id", call.id)
-          .eq("status", "dialing")
-          .select("id");
-        if (updated?.length) {
-          await anomaly("watchdog_abandoned_no_conversation", { call_id: call.id, age });
-          await promoteBench(db, call.search_id);
-          if (deps.dispatchFn) await deps.dispatchFn();
-          await settleIfDrained(db, call.search_id, now);
-          summary.reconciledGone++;
+        if (await markUnreachedAndRefill(call, "watchdog_abandoned_no_conversation", { age })) {
+          summary.abandoned++;
         }
       } else {
         await anomaly("watchdog_stale_no_conversation", { call_id: call.id, age });
@@ -161,20 +183,11 @@ export async function watchdog(deps: WatchdogDeps = {}): Promise<WatchdogSummary
     if (!lookup.ok && lookup.notFound) {
       // no provider record — the call does not exist; the number stays
       // politely blocked (we can't prove it never rang)
-      const { data: updated } = await db
-        .from("calls")
-        .update({ status: "unreached", rank_bucket: 4, ended_at: now.toISOString() })
-        .eq("id", call.id)
-        .eq("status", "dialing")
-        .select("id");
-      if (updated?.length) {
-        await anomaly("watchdog_reconciled_gone", {
-          call_id: call.id,
+      if (
+        await markUnreachedAndRefill(call, "watchdog_reconciled_gone", {
           conversation_id: call.conversation_id,
-        });
-        await promoteBench(db, call.search_id);
-        if (deps.dispatchFn) await deps.dispatchFn();
-        await settleIfDrained(db, call.search_id, now);
+        })
+      ) {
         summary.reconciledGone++;
       }
       continue;

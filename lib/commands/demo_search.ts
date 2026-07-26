@@ -32,12 +32,14 @@ export async function createDemoSearch(
   const db = serviceClient();
 
   // Idempotent per session: one active demo search at a time (a light version
-  // of the 4.4 abuse guard); re-submitting reuses it.
+  // of the 4.4 abuse guard); re-submitting reuses it. DEMO boards only — a
+  // live search must never be hijacked as the demo board (review finding).
   const { data: existing } = await db
     .from("searches")
     .select("id")
     .eq("owner", input.owner)
     .eq("status", "active")
+    .eq("dial_mode", "DEMO")
     .limit(1)
     .maybeSingle();
   if (existing) return { searchId: existing.id };
