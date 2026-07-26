@@ -39,13 +39,13 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 
 *Per how-we-work §2: prove the architecture end-to-end with zero domain logic before building on it. Our scariest seam is Vercel↔ElevenLabs↔Twilio↔Supabase — it gets a tracer bullet FIRST.*
 
-- [~] **0.1 Repo scaffold** 🤖
-  - [~] 0.1.1 Next.js (App Router, TS) scaffold matching the approved tree → passes when: `npm run build` green, folder tree matches the approved structure.
-  - [ ] 0.1.2 git init + first commit + `.env.example` naming every key → passes when: `git log` shows commit; `.env.local` is ignored (`git status` clean with it present).
-  - **Step success:** fresh `npm install && npm run build` green from a clean checkout.
+- [x] **0.1 Repo scaffold** 🤖
+  - [x] 0.1.1 Next.js (App Router, TS) scaffold matching the approved tree → passes when: `npm run build` green, folder tree matches the approved structure. ✅ build + typecheck green.
+  - [x] 0.1.2 git init + first commit + `.env.example` naming every key → passes when: `git log` shows commit; `.env.local` is ignored (`git status` clean with it present). ✅ commit 048dd05; env ignored verified.
+  - **Step success:** fresh `npm install && npm run build` green from a clean checkout. ✅
 
-- [ ] **0.2 Database schema v1** 🤖
-  - [ ] 0.2.1 Migrations: `medications, pharmacies, searches, calls, call_events, dial_log` with status enums, `unique(search_id, pharmacy_id)`, CHECK constraints (no stock verdict without confirmed branch) → passes when: migration applies cleanly to a fresh database.
+- [~] **0.2 Database schema v1** 🤖
+  - [~] 0.2.1 Migrations: `medications, pharmacies, searches, calls, call_events, dial_log` with status enums, `unique(search_id, pharmacy_id)`, CHECK constraints (no stock verdict without confirmed branch) → passes when: migration applies cleanly to a fresh database.
   - [ ] 0.2.2 Constraint proof script: attempts 5 forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all 5 are REJECTED by the database itself.
   - **Step success:** schema up + all forbidden-state inserts bounce.
 
