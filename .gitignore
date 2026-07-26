@@ -1,4 +1,5 @@
-# secrets — never committed
+# secrets — never committed (.env.example is the one tracked exception,
+# and the negation must come AFTER every broad .env* rule to win)
 .env
 .env.*
 !.env.example
@@ -13,5 +14,3 @@ node_modules/
 # misc
 .DS_Store
 *.log
-.vercel
-.env*

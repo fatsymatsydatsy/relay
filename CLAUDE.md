@@ -40,7 +40,7 @@ One command = one file in `lib/commands/`. When something breaks, the stuck row'
 
 ## Directory map
 
-`app/` routes only (UI colocated) · `lib/commands/` one file per command · `lib/domain/` pure logic, no I/O, unit-tested · `lib/integrations/` elevenlabs/openai/geocode/supabase · `lib/prompts/` extraction prompt · `supabase/migrations` + `supabase/seed` · `scripts/` run-by-hand (seed, replay-transcripts) · `tests/` · `docs/` (+ `docs/review/` adversarial reports) · `evidence/` real-run call logs.
+`app/` routes only (UI colocated) · `components/` + `lib/search/` UI vendored from the teammate's relay repo (Phase 1 fold-in; `lib/search/types.ts` is the UI↔backend seam) · `lib/commands/` one file per command · `lib/domain/` pure logic, no I/O, unit-tested · `lib/integrations/` elevenlabs/openai/geocode/supabase (+ `supabase-browser.ts` anon client) · `lib/prompts/` extraction prompt · `supabase/migrations` + `supabase/seed` · `scripts/` run-by-hand (seed, replay-transcripts) · `tests/` · `docs/` (+ `docs/review/` adversarial reports) · `evidence/` real-run call logs.
 
 ## Conventions
 
