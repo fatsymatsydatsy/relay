@@ -3,12 +3,16 @@
 AI pharmacy stock finder (48h hackathon, submission 12:00 26 Jul 2026: GitHub repo + ≤60s demo video).
 One-liner: patient enters med + postcode → an ElevenLabs voice agent really phones open pharmacies → verdicts stream live, ranked.
 
-## Read these first, in order
+## Read these first, in order (fresh session? this list IS your context)
 
-1. **[build-steps.md](build-steps.md)** — THE living state file: every phase/step/sub-step, its acceptance criteria, its status. Where we are = what it says.
-2. [PRODUCT.md](PRODUCT.md) — product truth, non-negotiables. [DESIGN.md](DESIGN.md) — visual tokens.
-3. [pharmacy-call-agent-script.md](pharmacy-call-agent-script.md) — the agent's authoritative behavior (approved v1.2).
-4. Architecture doc (rendered): https://claude.ai/code/artifact/f0a43665-e165-42a2-a329-b0ee9ea793cd · Build plan: https://claude.ai/code/artifact/245e67ed-4ad4-4e98-bc47-e97ef55700a2
+1. **[build-steps.md](build-steps.md)** — THE living state file: every phase/step/sub-step, its acceptance criteria, its status. Where we are = what it says. Find the `[~]`; that's the work.
+2. **[docs/architecture.md](docs/architecture.md)** — how the system works: golden rule, commands, state machine v3, event model, integration endpoints, failure table.
+3. **[docs/operations.md](docs/operations.md)** — live URLs, project refs, local test stack quirks, scripts, session ritual.
+4. [PRODUCT.md](PRODUCT.md) — product truth, non-negotiables. [CONTEXT.md](CONTEXT.md) — glossary. [DESIGN.md](DESIGN.md) — visual tokens.
+5. [pharmacy-call-agent-script.md](pharmacy-call-agent-script.md) — the agent's authoritative behavior (approved v1.2).
+6. [docs/runbook.md](docs/runbook.md) — submission-day schedule, video shot list, role-play scripts, UI contract for the teammate.
+
+(Rendered artifact copies for Marvin's viewing only — may not be fetchable in-session; the repo files above are canonical: architecture https://claude.ai/code/artifact/f0a43665-e165-42a2-a329-b0ee9ea793cd · build plan https://claude.ai/code/artifact/245e67ed-4ad4-4e98-bc47-e97ef55700a2)
 
 ## Status protocol (non-negotiable, from how-we-work)
 

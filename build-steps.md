@@ -60,7 +60,7 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
   - [x] 0.4.3 Outbound call via API from a script, `call_ref` in dynamic variables → passes when: 🤖 response contains `conversation_id` + `callSid`. ✅ conv_7901kye0…, CA592f9f….
   - [x] 0.4.4 Webhook route: HMAC verify → append raw to `call_events` → 200 → passes when: 🤖 a forged-signature POST gets 200 + log + NO row ✅ (vs prod); a real webhook writes a row ✅ (event id 1).
   - [x] 0.4.5 End-to-end tracer: script dials Marvin, he answers, hangs up → passes when: 🤖 within 60s `call_events` holds a `post_call_transcription` row whose `call_ref` matches, with real transcript text ✅ (landed ~45s). 🧑 Marvin confirmed the transcript. ✅ "Approved."
-  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ **PHASE 0 CLOSED.** Gate before Phase 1/2: fix codex end-of-phase findings (review in flight).
+  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ **PHASE 0 CLOSED.** End-of-phase codex review: 5 findings (1×P1 always-200 escape, 4×P2) — all fixed + attack-verified vs prod in 0.5; proof now 13/13; reports filed in `docs/review/`. Gate satisfied.
 
 ---
 
@@ -68,7 +68,7 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 
 *Zero backend risk; pure look-and-feel. All 🧑-gated on fidelity.*
 
-- [ ] **1.1 Fake data seed** 🤖 — script inserts 1 fake search + 8 call rows covering every state and bucket → passes when: rows visible in Supabase Studio.
+- [~] **1.1 Fake data seed** 🤖 — script inserts 1 fake search + 8 call rows covering every state and bucket → passes when: rows visible in Supabase Studio.
 - [ ] **1.2 Search form** 🧑 — med (seeded shortage list), dosage, quantity, postcode, radius, NHS/private; disclaimer visible → passes when: 🧑 Marvin + teammate approve on phone AND desktop; submits to a stub.
 - [ ] **1.3 Scoreboard on fake rows** 🧑 — every state visually distinct (queued · ringing · 3 verdict kinds · couldn't-reach · expired), timestamps ("confirmed by phone at 14:32"), partial-quantity display ("1 box — you need 2") → passes when: 🧑 bucket 4 is unmistakably NOT a stock verdict; disclaimer present; teammate + Marvin sign off.
 - [ ] **1.4 Realtime proof** 🤖 + 🧑 — subscribe; manually UPDATE a row in SQL → passes when: board updates < 2s with no refresh (🧑 watches it happen).
