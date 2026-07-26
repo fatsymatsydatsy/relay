@@ -1,0 +1,199 @@
+{
+  "search": {
+    "id": "673412c0-6c1a-4374-bd8f-5ee83ed12def",
+    "dial_mode": "REAL",
+    "medication_name": "Creon 25,000",
+    "quantity_needed": 2,
+    "postcode": "W2 2DS",
+    "status": "complete",
+    "created_at": "2026-07-26T09:20:34.932708+00:00",
+    "deadline_at": "2026-07-26T09:40:33.308+00:00",
+    "settled_at": "2026-07-26T09:36:01.104+00:00"
+  },
+  "calls": [
+    {
+      "pharmacy_name": "Nasslam Pharmacy",
+      "pharmacy_ods": "FK102",
+      "status": "unreached",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442072629332",
+      "claimed_at": "2026-07-26T09:20:35.423+00:00",
+      "ended_at": "2026-07-26T09:36:01.104+00:00",
+      "verdict_at": null,
+      "rank_bucket": 4,
+      "location_confirmed": null,
+      "verdict": null
+    },
+    {
+      "pharmacy_name": "AL FARABI PHARMACY",
+      "pharmacy_ods": "FXH58",
+      "status": "wrong_location",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442077061400",
+      "claimed_at": "2026-07-26T09:20:35.423+00:00",
+      "ended_at": "2026-07-26T09:20:56.997+00:00",
+      "verdict_at": null,
+      "rank_bucket": 4,
+      "location_confirmed": "no",
+      "verdict": null
+    },
+    {
+      "pharmacy_name": "Pharmacentre",
+      "pharmacy_ods": "FCT73",
+      "status": "verdict",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442077232336",
+      "claimed_at": "2026-07-26T09:20:35.423+00:00",
+      "ended_at": "2026-07-26T09:21:23.228+00:00",
+      "verdict_at": "2026-07-26T09:21:23.492+00:00",
+      "rank_bucket": 3,
+      "location_confirmed": "yes",
+      "verdict": {
+        "outcome": "completed",
+        "eta_days": null,
+        "eta_label": null,
+        "stock_status": "out_of_stock",
+        "quantity_unit": null,
+        "quantity_available": null,
+        "shortage_mentioned": true,
+        "quantity_meets_need": "no"
+      }
+    },
+    {
+      "pharmacy_name": "Devonshire Pharmacy",
+      "pharmacy_ods": "FAQ26",
+      "status": "verdict",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442074026134",
+      "claimed_at": "2026-07-26T09:20:57.264+00:00",
+      "ended_at": "2026-07-26T09:21:57.121+00:00",
+      "verdict_at": "2026-07-26T09:21:57.379+00:00",
+      "rank_bucket": 2,
+      "location_confirmed": "yes",
+      "verdict": {
+        "outcome": "completed",
+        "eta_days": 1,
+        "eta_label": "tomorrow",
+        "stock_status": "orderable",
+        "quantity_unit": null,
+        "quantity_available": null,
+        "shortage_mentioned": true,
+        "quantity_meets_need": "no"
+      }
+    },
+    {
+      "pharmacy_name": "Safeer Pharmacy",
+      "pharmacy_ods": "FRA80",
+      "status": "verdict",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442077238997",
+      "claimed_at": "2026-07-26T09:21:23.492+00:00",
+      "ended_at": "2026-07-26T09:22:28.76+00:00",
+      "verdict_at": "2026-07-26T09:22:29.004+00:00",
+      "rank_bucket": 3,
+      "location_confirmed": "yes",
+      "verdict": {
+        "outcome": "completed",
+        "eta_days": null,
+        "eta_label": null,
+        "stock_status": "out_of_stock",
+        "quantity_unit": null,
+        "quantity_available": null,
+        "shortage_mentioned": true,
+        "quantity_meets_need": "no"
+      }
+    },
+    {
+      "pharmacy_name": "Boots",
+      "pharmacy_ods": "FY004",
+      "status": "verdict",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442072627434",
+      "claimed_at": "2026-07-26T09:21:57.38+00:00",
+      "ended_at": "2026-07-26T09:23:18.664+00:00",
+      "verdict_at": "2026-07-26T09:23:18.921+00:00",
+      "rank_bucket": 4,
+      "location_confirmed": "yes",
+      "verdict": {
+        "outcome": "incomplete",
+        "eta_days": null,
+        "eta_label": null,
+        "stock_status": "unclear",
+        "quantity_unit": null,
+        "quantity_available": null,
+        "shortage_mentioned": false,
+        "quantity_meets_need": "unknown"
+      }
+    },
+    {
+      "pharmacy_name": "THE PHARMACY AT MAYFAIR & CLINIC",
+      "pharmacy_ods": "FHV04",
+      "status": "verdict",
+      "is_bench": false,
+      "dial_mode": "REAL",
+      "resolved_number": "+442074932309",
+      "claimed_at": "2026-07-26T09:22:29.005+00:00",
+      "ended_at": "2026-07-26T09:22:49.373+00:00",
+      "verdict_at": "2026-07-26T09:22:49.613+00:00",
+      "rank_bucket": 4,
+      "location_confirmed": "yes",
+      "verdict": {
+        "outcome": "incomplete",
+        "eta_days": null,
+        "eta_label": null,
+        "stock_status": "unclear",
+        "quantity_unit": null,
+        "quantity_available": null,
+        "shortage_mentioned": false,
+        "quantity_meets_need": "unknown"
+      }
+    }
+  ],
+  "dialLog": [
+    {
+      "phone": "+442077232336",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:20:35.423+00:00"
+    },
+    {
+      "phone": "+442072629332",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:20:35.423+00:00"
+    },
+    {
+      "phone": "+442077061400",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:20:35.423+00:00"
+    },
+    {
+      "phone": "+442074026134",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:20:57.264+00:00"
+    },
+    {
+      "phone": "+442077238997",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:21:23.492+00:00"
+    },
+    {
+      "phone": "+442072627434",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:21:57.38+00:00"
+    },
+    {
+      "phone": "+442074932309",
+      "outcome": "connected",
+      "dialed_at": "2026-07-26T09:22:29.005+00:00"
+    }
+  ],
+  "eventCounts": {
+    "post_call_transcription": 6
+  },
+  "generatedAt": "2026-07-26T09:37:27.305Z"
+}
