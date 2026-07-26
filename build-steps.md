@@ -49,18 +49,18 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
   - [x] 0.2.2 Constraint proof script: attempts 6 forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all are REJECTED by the database itself. ✅ `scripts/prove-constraints.sql` → "ALL 6 FORBIDDEN STATES REJECTED" (commit 2c2467b).
   - **Step success:** schema up + all forbidden-state inserts bounce. ✅
 
-- [~] **0.3 Deployed shell** 🤖 + 🧑 — codex phase-0 review done: 9 findings, all fixed in 0.2b (verdict-leak bypasses, dial_log lifecycle, append-only triggers, E.164, explicit grants, ON_ERROR_STOP, seed glob, attempts 0–3, engines).
+- [x] **0.3 Deployed shell** 🤖 + 🧑 — https://medfind-three.vercel.app · codex phase-0 review: 9 findings, all fixed in 0.2b (verdict-leak bypasses, dial_log lifecycle, append-only triggers, E.164, explicit grants, ON_ERROR_STOP, seed glob, attempts 0–3, engines).
   - [x] 0.3.1 Vercel project + env vars + deploy → passes when: 🤖 prod URL returns 200. ✅ https://medfind-three.vercel.app (project `medfind`, 8 prod env vars set).
-  - [ ] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded." **⛔ blocked: cloud DB has no schema yet — needs `supabase login` from Marvin (or the database password from Settings → Database) so I can push the migration.** Page currently says "Database not connected yet" — honestly.
+  - [x] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded." ✅ Marvin: "Checked, its correct."
   - **Step success:** the deployed site provably talks to the database.
 
 - [ ] **0.4 TRACER BULLET — one real call, no logic** 🧑 *(the whole point of Phase 0)*
-  - [ ] 0.4.1 Import Twilio number into ElevenLabs (SID + auth token) → passes when: 🧑 number shows "imported" in the ElevenLabs dashboard.
-  - [ ] 0.4.2 Minimal agent (temporary config, not the full script) + dashboard test call → passes when: 🧑 Marvin's phone rings from the dashboard and he hears the voice.
-  - [ ] 0.4.3 Outbound call via API from a script, `call_ref` in dynamic variables → passes when: 🤖 response contains `conversation_id` + `callSid`.
-  - [ ] 0.4.4 Webhook route: HMAC verify → append raw to `call_events` → 200 → passes when: 🤖 a forged-signature POST gets 200 + log + NO row; a real webhook writes a row.
-  - [ ] 0.4.5 End-to-end tracer: script dials Marvin, he answers, hangs up → passes when: 🤖 within 60s `call_events` holds a `post_call_transcription` row whose `call_ref` matches, with real transcript text. 🧑 Marvin confirms the transcript matches what he said.
-  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists.
+  - [x] 0.4.1 Import Twilio number into ElevenLabs (SID + auth token) → passes when: 🧑 number shows "imported" in the ElevenLabs dashboard. ✅ Marvin confirmed; +442046522842 (twilio) visible via API.
+  - [x] 0.4.2 Minimal agent (temporary config, not the full script) + dashboard test call → passes when: 🧑 Marvin's phone rings from the dashboard and he hears the voice. ✅ Marvin: "tested and the agent talks to me and it works."
+  - [x] 0.4.3 Outbound call via API from a script, `call_ref` in dynamic variables → passes when: 🤖 response contains `conversation_id` + `callSid`. ✅ conv_7901kye0…, CA592f9f….
+  - [x] 0.4.4 Webhook route: HMAC verify → append raw to `call_events` → 200 → passes when: 🤖 a forged-signature POST gets 200 + log + NO row ✅ (vs prod); a real webhook writes a row ✅ (event id 1).
+  - [?] 0.4.5 End-to-end tracer: script dials Marvin, he answers, hangs up → passes when: 🤖 within 60s `call_events` holds a `post_call_transcription` row whose `call_ref` matches, with real transcript text ✅ (landed ~45s, call_ref matched, transcript real). 🧑 **Marvin confirms the transcript matches what he said** ("Hello." / "No.") — one word closes Phase 0.
+  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ machine side.
 
 ---
 
