@@ -1,14 +1,19 @@
 import crypto from "node:crypto";
+import { after } from "next/server";
 import { serviceClient } from "@/lib/integrations/supabase";
+import { recordCallEvent } from "@/lib/commands/record_call_event";
+import { extractResult } from "@/lib/commands/extract_result";
+import { dispatch } from "@/lib/commands/dispatch";
 
 export const dynamic = "force-dynamic";
 
 /**
- * ElevenLabs post-call webhook receiver — Phase 0 tracer version.
+ * ElevenLabs post-call webhook receiver.
  * Invariants (CLAUDE.md): verify HMAC · ALWAYS return 200 from EVERY path
  * (a 5xx streak trips ElevenLabs' auto-disable and silently freezes every
  * search) · persist the verified raw body BEFORE parsing (raw is evidence) ·
- * never interpret. Interpretation arrives in step 3.3.
+ * interpretation (record_call_event) runs post-200 via next/server after()
+ * — Vercel doesn't guarantee post-response work otherwise.
  */
 
 const MAX_BODY_BYTES = 1_000_000; // transcripts run 10–100KB; anything bigger is abuse
@@ -107,6 +112,24 @@ export async function POST(req: Request) {
     if (error && error.code !== "23505") {
       // 23505 = duplicate (expected on retries); anything else must be visible
       console.error("[webhook] event insert failed", error.message);
+    }
+
+    // First delivery only (duplicates already returned above as 23505):
+    // interpret AFTER the 200 is on the wire.
+    if (!error) {
+      after(async () => {
+        try {
+          await recordCallEvent(
+            { eventType, payload },
+            {
+              extractFn: (callId) => extractResult(callId),
+              dispatchFn: () => dispatch(),
+            },
+          );
+        } catch (err) {
+          console.error("[webhook] record_call_event failed", err);
+        }
+      });
     }
 
     return ok();
