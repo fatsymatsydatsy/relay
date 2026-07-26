@@ -4,6 +4,7 @@ import { serviceClient } from "@/lib/integrations/supabase";
 import { recordCallEvent } from "@/lib/commands/record_call_event";
 import { extractResult } from "@/lib/commands/extract_result";
 import { dispatch } from "@/lib/commands/dispatch";
+import { shouldScheduleInterpretation } from "@/lib/domain/webhook-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -114,9 +115,12 @@ export async function POST(req: Request) {
       console.error("[webhook] event insert failed", error.message);
     }
 
-    // First delivery only (duplicates already returned above as 23505):
-    // interpret AFTER the 200 is on the wire.
-    if (!error) {
+    // Interpret AFTER the 200 is on the wire — on first delivery AND on
+    // duplicate redeliveries (23505): interpretation is idempotent, and a
+    // redelivery is the only thing that can heal a lost after() (3.7 P1-7,
+    // webhook.duplicate-interprets). Other insert errors = raw not persisted
+    // → nothing is interpreted (store-raw-first is the evidence rule).
+    if (shouldScheduleInterpretation(error)) {
       after(async () => {
         try {
           await recordCallEvent(

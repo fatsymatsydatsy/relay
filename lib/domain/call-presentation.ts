@@ -24,7 +24,8 @@ export interface CallRowLike {
     stock_status?: string;
     quantity_available?: number | null;
     quantity_unit?: string | null;
-    eta?: string | null;
+    /** synthetic display string derived from eta_days — never a quote */
+    eta_label?: string | null;
   } | null;
   verdict_at: string | null;
 }
@@ -59,7 +60,7 @@ export function presentCall(row: CallRowLike): CallPresentation {
       const base = {
         quantityAvailable: v.quantity_available ?? null,
         quantityUnit: v.quantity_unit ?? null,
-        eta: v.eta ?? null,
+        eta: v.eta_label ?? null,
         confirmedAt: row.verdict_at,
       };
       if (row.rank_bucket === 1) return { phase: "in-stock", bucket: 1, ...base };

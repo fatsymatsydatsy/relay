@@ -187,7 +187,7 @@ describe("extract_result", () => {
 
     const { data: rows } = await db
       .from("calls")
-      .select("id, status, rank_bucket, verdict, verdict_at, location_confirmed")
+      .select("id, status, rank_bucket, verdict, verdict_at, location_confirmed, extraction")
       .in("id", Object.values(callIds));
     const byId = new Map((rows ?? []).map((r) => [r.id, r]));
 
@@ -197,11 +197,16 @@ describe("extract_result", () => {
     expect(partial.verdict?.stock_status).toBe("in_stock");
     expect(partial.verdict?.quantity_available).toBe(1);
     expect(partial.verdict_at).not.toBeNull();
+    // verbatims stay in the service-only extraction column, never the verdict
+    expect(JSON.stringify(partial.verdict)).not.toContain("afraid");
+    expect(partial.extraction?.notable_quotes?.[0]).toContain("one box left");
 
     const orderable = byId.get(callIds.orderable)!;
     expect(orderable.rank_bucket).toBe(2);
     expect(orderable.verdict?.stock_status).toBe("orderable");
-    expect(orderable.verdict?.eta).toBe("Thursday at the earliest");
+    expect(orderable.verdict?.eta_days).toBeGreaterThanOrEqual(1); // "Thursday …" parsed
+    expect(orderable.verdict?.eta_label).toBeTruthy(); // synthetic label
+    expect(JSON.stringify(orderable.verdict)).not.toContain("earliest"); // never quoted
 
     const plainNo = byId.get(callIds.plainNo)!;
     expect(plainNo.rank_bucket).toBe(3);
@@ -334,5 +339,98 @@ describe("extract_result", () => {
       .select("kind")
       .eq("kind", "extraction_failed");
     expect((anomaly ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("bench.exhaustion-promotes — total extraction failure ALSO promotes the bench (audit P1-3)", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    const { data: med } = await db
+      .from("medications")
+      .select("id")
+      .eq("display", `ExtractMed-${RUN}`)
+      .single();
+    const { error: phErr } = await db.from("pharmacies").upsert(
+      [6, 7].map((n) => ({
+        ods_code: ODS(n),
+        name: `Extract Pharmacy exhaustion ${n}`,
+        address: `${n} Extract Row`,
+        postcode: "X3 4ST",
+        phone: `+44770${Math.floor(Math.random() * 900) + 100}5${String(n).padStart(2, "0")}`,
+        lat: 58.5 + n * 0.001,
+        lng: 3.5,
+        hours: { mon: [["00:00", "24:00"]] },
+        source: "dev_test",
+      })),
+      { onConflict: "ods_code" },
+    );
+    if (phErr) throw new Error(phErr.message);
+
+    const { data: search, error: sErr } = await db
+      .from("searches")
+      .insert({
+        owner: crypto.randomUUID(),
+        medication_id: med!.id,
+        quantity_needed: 1,
+        postcode: "X3 4ST",
+        radius_km: 5,
+        status: "active",
+        deadline_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      })
+      .select("id")
+      .single();
+    if (sErr) throw new Error(sErr.message);
+
+    const { data: dead, error: dErr } = await db
+      .from("calls")
+      .insert({
+        search_id: search!.id,
+        pharmacy_ods: ODS(6),
+        status: "transcript_ready",
+        is_bench: false,
+        transcript: { transcript: [{ role: "user", message: "line dropped mid-call" }] },
+      })
+      .select("id")
+      .single();
+    if (dErr) throw new Error(dErr.message);
+    const { data: bench, error: bErr } = await db
+      .from("calls")
+      .insert({
+        search_id: search!.id,
+        pharmacy_ods: ODS(7),
+        status: "queued",
+        is_bench: true,
+        rank_score: 0.4,
+      })
+      .select("id")
+      .single();
+    if (bErr) throw new Error(bErr.message);
+
+    let dispatches = 0;
+    const alwaysThrows: ChatJsonFn = async () => {
+      throw new Error("llm outage");
+    };
+    const outcome = await extractResult(dead!.id, {
+      db,
+      llm: alwaysThrows,
+      dispatchFn: async () => void dispatches++,
+    });
+    expect(outcome.action).toBe("extraction_failed");
+
+    // the search does NOT dead-end: the bench stepped up and a refill ran
+    const { data: promoted } = await db
+      .from("calls")
+      .select("is_bench, status")
+      .eq("id", bench!.id)
+      .single();
+    expect(promoted?.is_bench).toBe(false);
+    expect(promoted?.status).toBe("queued");
+    expect(dispatches).toBe(1);
+
+    const { data: searchRow } = await db
+      .from("searches")
+      .select("status")
+      .eq("id", search!.id)
+      .single();
+    expect(searchRow?.status).toBe("active"); // a dialable row remains — not settled
   });
 });

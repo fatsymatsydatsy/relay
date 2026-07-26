@@ -15,7 +15,8 @@
 --                 Europe/London wall clock; 24/7 = ["00:00","24:00"] every day.
 --   verdict jsonb {stock_status: in_stock|orderable|out_of_stock,
 --                  quantity_available int|null, quantity_unit text|null,
---                  eta text|null, notes text|null}
+--                  eta_label text|null}  — structured fields ONLY; verbatims
+--                  live in the service-only calls.extraction column (3.7 P1-4)
 
 begin;
 
@@ -73,14 +74,17 @@ on conflict (ods_code) do update set
 -- ── the demo search: needs 2 boxes, so partial stock reads "1 box — you need 2"
 insert into searches
   (id, owner, medication_id, quantity_needed, postcode, radius_km,
-   status, created_at, deadline_at)
+   status, dial_mode, created_at, deadline_at)
 values
   ('c0000000-0000-4000-8000-000000000001', :demo_owner,
    'b0000000-0000-4000-8000-000000000001', 2, 'B5 4BU', 5,
-   'active', now() - interval '6 minutes', now() + interval '14 minutes')
+   -- DEMO (3.7 P1-1): the fixture board is never claimable and never counts
+   -- against the global dialing cap
+   'active', 'DEMO', now() - interval '6 minutes', now() + interval '14 minutes')
 on conflict (id) do update set
   quantity_needed = excluded.quantity_needed, postcode = excluded.postcode,
   radius_km = excluded.radius_km, status = excluded.status,
+  dial_mode = excluded.dial_mode,
   created_at = excluded.created_at, deadline_at = excluded.deadline_at,
   settled_at = null;
 
@@ -115,7 +119,7 @@ values
    now() - interval '5 minutes', 'conv_demo_instock',
    '{"turns": [{"role": "pharmacist", "text": "Yes we have two boxes of Creon 25,000."}]}',
    '{"stock_status": "in_stock", "quantity_available": 2, "quantity_unit": "boxes",
-     "eta": null, "notes": null}',
+     "eta_label": null}',
    now() - interval '4 minutes', now() - interval '4 minutes',
    now() - interval '6 minutes'),
 
@@ -125,7 +129,7 @@ values
    now() - interval '5 minutes', 'conv_demo_partial',
    '{"turns": [{"role": "pharmacist", "text": "Only one box left I''m afraid."}]}',
    '{"stock_status": "in_stock", "quantity_available": 1, "quantity_unit": "boxes",
-     "eta": null, "notes": "last box on the shelf"}',
+     "eta_label": null}',
    now() - interval '3 minutes', now() - interval '3 minutes',
    now() - interval '6 minutes'),
 
@@ -135,7 +139,7 @@ values
    now() - interval '5 minutes', 'conv_demo_orderable',
    '{"turns": [{"role": "pharmacist", "text": "We can order it in for tomorrow morning."}]}',
    '{"stock_status": "orderable", "quantity_available": null, "quantity_unit": null,
-     "eta": "tomorrow morning", "notes": "orders placed before 5pm arrive next day"}',
+     "eta_label": "tomorrow"}',
    now() - interval '2 minutes', now() - interval '2 minutes',
    now() - interval '6 minutes'),
 
@@ -145,7 +149,7 @@ values
    now() - interval '4 minutes', 'conv_demo_nostock',
    '{"turns": [{"role": "pharmacist", "text": "None at all — it''s the national shortage."}]}',
    '{"stock_status": "out_of_stock", "quantity_available": 0, "quantity_unit": "boxes",
-     "eta": null, "notes": "national shortage mentioned"}',
+     "eta_label": null}',
    now() - interval '90 seconds', now() - interval '90 seconds',
    now() - interval '6 minutes'),
 

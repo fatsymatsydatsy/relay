@@ -112,6 +112,29 @@ describe("constrained pick", () => {
       .toBeGreaterThanOrEqual(2);
   });
 
+  it("portfolio.supermarket-swap — a same-chain supermarket swaps in without breaking the cap (audit P2-4)", () => {
+    // chain A already holds two target slots; the ONLY supermarket is also
+    // chain A. The legal move is a same-chain swap (evict a chain-A branch,
+    // admit the chain-A supermarket) — the old code refused it entirely.
+    const { targets } = buildPortfolio({
+      candidates: [
+        candidate({ ods: "A1", ownershipGroup: "chainA", distanceKm: 0.1 }),
+        candidate({ ods: "A2", ownershipGroup: "chainA", distanceKm: 0.2 }),
+        candidate({ ods: "I1", distanceKm: 0.3 }),
+        candidate({ ods: "I2", distanceKm: 0.4 }),
+        candidate({ ods: "AS", ownershipGroup: "chainA", isSupermarket: true, distanceKm: 4.5 }),
+      ],
+      now: NOW,
+      radiusKm: 5,
+      targetCount: 4,
+    });
+    expect(targets.some((t) => t.isSupermarket)).toBe(true);
+    expect(targets.filter((t) => t.ownershipGroup === "chainA").length).toBeLessThanOrEqual(2);
+    expect(targets.filter((t) => t.ownershipGroup === "independent").length).toBeGreaterThanOrEqual(2);
+    // the weakest chain-A branch was the one evicted
+    expect(targets.map((t) => t.ods).sort()).toEqual(["A1", "AS", "I1", "I2"]);
+  });
+
   it("quotas are 'when available' — no invention when the pool lacks them", () => {
     const { targets } = buildPortfolio({
       candidates: [

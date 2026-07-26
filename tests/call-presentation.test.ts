@@ -50,18 +50,18 @@ describe("presentCall — every seeded state", () => {
     expect(partial.quantityAvailable).toBe(1);
   });
 
-  it("bucket 2: orderable with ETA", () => {
+  it("bucket 2: orderable with ETA (synthetic eta_label, never a quote)", () => {
     const p = presentCall(
       row({
         status: "verdict",
         rank_bucket: 2,
-        verdict: { stock_status: "orderable", eta: "tomorrow morning" },
+        verdict: { stock_status: "orderable", eta_label: "tomorrow" },
         verdict_at: "2026-07-26T13:34:00Z",
       }),
     );
     expect(p.phase).toBe("can-order");
     expect(p.bucket).toBe(2);
-    expect(p.eta).toBe("tomorrow morning");
+    expect(p.eta).toBe("tomorrow");
   });
 
   it("bucket 3: plain no stock", () => {

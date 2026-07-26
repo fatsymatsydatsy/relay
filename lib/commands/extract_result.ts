@@ -57,7 +57,7 @@ export async function extractResult(
   const { data: call } = await db
     .from("calls")
     .select(
-      "id, search_id, pharmacy_ods, status, transcript, extraction_attempts, searches!inner(medication_id, quantity_needed), pharmacies!inner(name, address)",
+      "id, search_id, pharmacy_ods, status, transcript, extraction_attempts, searches!inner(medication_id, quantity_needed, dial_mode), pharmacies!inner(name, address)",
     )
     .eq("id", callId)
     .maybeSingle();
@@ -66,6 +66,7 @@ export async function extractResult(
   const search = call.searches as unknown as {
     medication_id: string;
     quantity_needed: number;
+    dial_mode: string;
   };
   const pharmacy = call.pharmacies as unknown as { name: string; address: string };
   const { data: medication } = await db
@@ -118,6 +119,10 @@ export async function extractResult(
         kind: "extraction_failed",
         detail: { call_id: call.id, attempts, lastError },
       });
+      // exhaustion is a dead end like any other (audit P1-3 / dress finding):
+      // the bench replaces it one-for-one, then the freed line refills
+      await promoteBench(db, call.search_id);
+      if (deps.dispatchFn) await deps.dispatchFn();
       await settleIfDrained(db, call.search_id, now);
     }
     return { action: "extraction_failed", bucket: 4 };
@@ -132,6 +137,9 @@ export async function extractResult(
       location_confirmed: mapped.locationConfirmed,
       verdict: mapped.verdict,
       verdict_at: mapped.verdict ? now.toISOString() : null,
+      // the FULL §5 output (notable quotes, verbatims) — service-only column,
+      // never client-granted (audit P1-4); re-derivable from the transcript
+      extraction,
     })
     .eq("id", call.id)
     .eq("status", "transcript_ready")
@@ -153,18 +161,28 @@ export async function extractResult(
     if (deps.dispatchFn) await deps.dispatchFn();
   }
 
-  // fan out a fresh REAL verdict to same-pharmacy+med queued calls elsewhere
+  // fan out a fresh verdict to same-pharmacy+med queued calls elsewhere —
+  // same MODE only (3.7 P1-1): a DEV_TEST verdict never lands on a REAL board
   let fannedOut = 0;
   if (mapped.dbStatus === "verdict" && mapped.verdict) {
     const { data: waiting } = await db
       .from("calls")
-      .select("id, search_id, searches!inner(medication_id, status)")
+      .select("id, search_id, searches!inner(medication_id, status, dial_mode)")
       .eq("pharmacy_ods", call.pharmacy_ods)
       .eq("status", "queued")
       .neq("id", call.id);
     for (const w of waiting ?? []) {
-      const s = w.searches as unknown as { medication_id: string; status: string };
-      if (s.medication_id !== search.medication_id || s.status !== "active") continue;
+      const s = w.searches as unknown as {
+        medication_id: string;
+        status: string;
+        dial_mode: string;
+      };
+      if (
+        s.medication_id !== search.medication_id ||
+        s.status !== "active" ||
+        s.dial_mode !== search.dial_mode
+      )
+        continue;
       const { data: copied } = await db
         .from("calls")
         .update({

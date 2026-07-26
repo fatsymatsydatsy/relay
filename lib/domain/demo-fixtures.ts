@@ -57,8 +57,8 @@ export interface FixtureCall {
     stock_status: "in_stock" | "orderable" | "out_of_stock";
     quantity_available: number | null;
     quantity_unit: string | null;
-    eta: string | null;
-    notes: string | null;
+    /** synthetic display string (verdict jsonb carries no verbatims — P1-4) */
+    eta_label: string | null;
   } | null;
   /** minutes before "now" the verdict/end landed (null = still open). */
   verdictMinutesAgo: number | null;
@@ -71,10 +71,10 @@ export const FIXTURE_CALLS: FixtureCall[] = [
   { ods: "FAKE09", status: "queued", rank_bucket: null, location_confirmed: null, verdict: null, verdictMinutesAgo: null, endedMinutesAgo: null, dialed: false },
   { ods: "FAKE06", status: "dialing", rank_bucket: null, location_confirmed: null, verdict: null, verdictMinutesAgo: null, endedMinutesAgo: null, dialed: true },
   { ods: "FAKE07", status: "transcript_ready", rank_bucket: null, location_confirmed: null, verdict: null, verdictMinutesAgo: null, endedMinutesAgo: 0.3, dialed: true },
-  { ods: "FAKE01", status: "verdict", rank_bucket: 1, location_confirmed: "yes", verdict: { stock_status: "in_stock", quantity_available: 2, quantity_unit: "boxes", eta: null, notes: null }, verdictMinutesAgo: 4, endedMinutesAgo: 4, dialed: true },
-  { ods: "FAKE02", status: "verdict", rank_bucket: 1, location_confirmed: "yes", verdict: { stock_status: "in_stock", quantity_available: 1, quantity_unit: "boxes", eta: null, notes: "last box on the shelf" }, verdictMinutesAgo: 3, endedMinutesAgo: 3, dialed: true },
-  { ods: "FAKE03", status: "verdict", rank_bucket: 2, location_confirmed: "yes", verdict: { stock_status: "orderable", quantity_available: null, quantity_unit: null, eta: "tomorrow morning", notes: "orders before 5pm arrive next day" }, verdictMinutesAgo: 2, endedMinutesAgo: 2, dialed: true },
-  { ods: "FAKE04", status: "verdict", rank_bucket: 3, location_confirmed: "yes", verdict: { stock_status: "out_of_stock", quantity_available: 0, quantity_unit: "boxes", eta: null, notes: "national shortage mentioned" }, verdictMinutesAgo: 1.5, endedMinutesAgo: 1.5, dialed: true },
+  { ods: "FAKE01", status: "verdict", rank_bucket: 1, location_confirmed: "yes", verdict: { stock_status: "in_stock", quantity_available: 2, quantity_unit: "boxes", eta_label: null }, verdictMinutesAgo: 4, endedMinutesAgo: 4, dialed: true },
+  { ods: "FAKE02", status: "verdict", rank_bucket: 1, location_confirmed: "yes", verdict: { stock_status: "in_stock", quantity_available: 1, quantity_unit: "boxes", eta_label: null }, verdictMinutesAgo: 3, endedMinutesAgo: 3, dialed: true },
+  { ods: "FAKE03", status: "verdict", rank_bucket: 2, location_confirmed: "yes", verdict: { stock_status: "orderable", quantity_available: null, quantity_unit: null, eta_label: "tomorrow" }, verdictMinutesAgo: 2, endedMinutesAgo: 2, dialed: true },
+  { ods: "FAKE04", status: "verdict", rank_bucket: 3, location_confirmed: "yes", verdict: { stock_status: "out_of_stock", quantity_available: 0, quantity_unit: "boxes", eta_label: null }, verdictMinutesAgo: 1.5, endedMinutesAgo: 1.5, dialed: true },
   { ods: "FAKE05", status: "unreached", rank_bucket: 4, location_confirmed: null, verdict: null, verdictMinutesAgo: null, endedMinutesAgo: 2, dialed: true },
   { ods: "FAKE08", status: "wrong_location", rank_bucket: 4, location_confirmed: "no", verdict: null, verdictMinutesAgo: null, endedMinutesAgo: 1, dialed: true },
   { ods: "FAKE10", status: "expired", rank_bucket: 4, location_confirmed: null, verdict: null, verdictMinutesAgo: null, endedMinutesAgo: null, dialed: false },

@@ -136,8 +136,10 @@ export function buildPortfolio(input: PortfolioInput): Portfolio {
 /**
  * Swap lowest-ranked non-matching targets for best matching bench entries
  * until `min` members match (or the pool runs out). Swaps never violate the
- * chain cap, and the supermarket pass never evicts below the independent
- * quota (protectIndependents).
+ * chain cap — including the same-chain case (audit P2-4): an incoming member
+ * of a capped chain is legal when the row it evicts belongs to that same
+ * chain, because the swap keeps the count. The supermarket pass never evicts
+ * below the independent quota (protectIndependents).
  */
 function ensureQuota(
   targets: ScoredCandidate[],
@@ -150,20 +152,10 @@ function ensureQuota(
   while (have < min) {
     const chainCount = (group: string) =>
       targets.filter((t) => t.ownershipGroup === group).length;
-    const incoming = overflow
-      .filter(matches)
-      .sort(byRank)
-      .find(
-        (c) =>
-          c.ownershipGroup === "independent" ||
-          chainCount(c.ownershipGroup) < MAX_PER_CHAIN,
-      );
-    if (!incoming) return; // none available — quotas are "when available"
-
     const independents = targets.filter(
       (t) => t.ownershipGroup === "independent",
     ).length;
-    const outgoing = [...targets]
+    const evictable = [...targets]
       .filter(
         (c) =>
           !matches(c) &&
@@ -173,9 +165,28 @@ function ensureQuota(
             independents <= MIN_INDEPENDENTS
           ),
       )
-      .sort(byRank)
-      .at(-1);
-    if (!outgoing) return;
+      .sort(byRank);
+
+    // best incoming that has a legal eviction partner: any evictable row when
+    // the chain is under cap; a SAME-chain evictable row when it is at cap
+    let incoming: ScoredCandidate | undefined;
+    let outgoing: ScoredCandidate | undefined;
+    for (const c of overflow.filter(matches).sort(byRank)) {
+      const underCap =
+        c.ownershipGroup === "independent" ||
+        chainCount(c.ownershipGroup) < MAX_PER_CHAIN;
+      const partner = underCap
+        ? evictable.at(-1)
+        : [...evictable]
+            .filter((t) => t.ownershipGroup === c.ownershipGroup)
+            .at(-1);
+      if (partner) {
+        incoming = c;
+        outgoing = partner;
+        break;
+      }
+    }
+    if (!incoming || !outgoing) return; // none available — quotas are "when available"
 
     targets.splice(targets.indexOf(outgoing), 1, incoming);
     overflow.splice(overflow.indexOf(incoming), 1);

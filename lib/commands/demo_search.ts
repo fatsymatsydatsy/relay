@@ -86,6 +86,9 @@ export async function createDemoSearch(
       postcode: input.postcode,
       radius_km: 5,
       status: "active",
+      // DEMO mode (3.7 P1-1): never claimable, never counted against the
+      // global dialing cap — the fixture board can't touch real capacity
+      dial_mode: "DEMO",
       created_at: minutesAgo(6),
       deadline_at: new Date(now + 14 * 60_000).toISOString(),
     })

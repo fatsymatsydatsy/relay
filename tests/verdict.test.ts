@@ -109,6 +109,7 @@ describe("mapExtraction — buckets", () => {
     expect(m.bucket).toBe(2);
     expect(m.verdict?.stock_status).toBe("orderable");
     expect(m.verdict?.eta_days).toBe(5); // Sat → next Thu
+    expect(m.verdict?.eta_label).toBe("Thursday"); // derived, not quoted
   });
 
   it("plain no stock → bucket 3", () => {
@@ -177,12 +178,69 @@ describe("mapExtraction — buckets", () => {
 });
 
 describe("normalizers", () => {
-  it("parseQuantity", () => {
+  it("parseQuantity — clear amounts still parse", () => {
     expect(parseQuantity("two boxes")).toEqual({ amount: 2, unit: "boxes" });
     expect(parseQuantity("1 box")).toEqual({ amount: 1, unit: "box" });
     expect(parseQuantity("a couple of packs")).toEqual({ amount: 2, unit: "packs" });
+    expect(parseQuantity("a box")).toEqual({ amount: 1, unit: "box" });
+    expect(parseQuantity("ten packs")).toEqual({ amount: 10, unit: "packs" });
+    expect(parseQuantity("4")).toEqual({ amount: 4, unit: null });
     expect(parseQuantity("loads")).toBeNull();
     expect(parseQuantity(null)).toBeNull();
+  });
+
+  it("quantity.conservative — never fabricates, never reads strength digits (audit P2-2)", () => {
+    // the audit's exact failure case: digit-first parsing returned 25
+    expect(parseQuantity("two boxes of the 25,000")).toEqual({ amount: 2, unit: "boxes" });
+    // strength alone is not a quantity
+    expect(parseQuantity("25,000")).toBeNull();
+    expect(parseQuantity("1.5")).toBeNull();
+    // vagueness must never become a precise number ("few" used to mean 3)
+    expect(parseQuantity("a few")).toBeNull();
+    expect(parseQuantity("a few boxes")).toBeNull();
+    expect(parseQuantity("some")).toBeNull();
+    // two unrelated numbers with no unit anchor: claim nothing
+    expect(parseQuantity("call back at 5 or 6")).toBeNull();
+    // absurd bare numbers are not amounts
+    expect(parseQuantity("500")).toBeNull();
+  });
+
+  it("verdict.no-verbatim — the client verdict carries no transcript excerpts (audit P1-4)", () => {
+    const m = mapExtraction(
+      extraction({
+        stock_status: "in_stock",
+        quantity_available_verbatim: "two boxes of the 25,000",
+        quantity_meets_need: "yes",
+        notable_quotes: ["ask for Sandra on the front desk, her direct line is 07700 900123"],
+      }),
+      NOW,
+    );
+    expect(m.verdict).not.toBeNull();
+    const keys = Object.keys(m.verdict!);
+    expect(keys).not.toContain("notes");
+    expect(keys).not.toContain("quantity_verbatim");
+    expect(keys).not.toContain("eta");
+    const json = JSON.stringify(m.verdict);
+    expect(json).not.toContain("Sandra");
+    expect(json).not.toContain("07700");
+    expect(json).not.toContain("25,000");
+    expect(m.verdict!.quantity_available).toBe(2);
+    expect(m.verdict!.quantity_unit).toBe("boxes");
+  });
+
+  it("eta_label never quotes the pharmacist", () => {
+    const m = mapExtraction(
+      extraction({
+        stock_status: "out_of_stock",
+        orderable: "yes",
+        eta_verbatim: "Thursday at the earliest, love — the van's been useless",
+      }),
+      NOW,
+    );
+    expect(m.verdict?.eta_days).toBe(5);
+    expect(m.verdict?.eta_label).toBe("Thursday");
+    expect(JSON.stringify(m.verdict)).not.toContain("earliest");
+    expect(JSON.stringify(m.verdict)).not.toContain("van");
   });
 
   it("etaDays from a Saturday", () => {

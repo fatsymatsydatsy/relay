@@ -137,30 +137,20 @@ export async function recordCallEvent(
   return { action: "unreached", callId: call.id };
 }
 
-/** One dead call → one bench replacement (best-ranked bench row steps up).
- *  Exported: extraction dead-ends (wrong branch, voicemail, refused) promote
- *  too, not just initiation failures (found in the 3.6 dress logs). */
+/** One dead call → exactly one bench replacement (best-ranked bench row steps
+ *  up). Atomic SQL under the claim's advisory lock (3.7 P1-3): two concurrent
+ *  terminal events can never promote the same row, and settle can never read
+ *  the bench mid-promotion. Exported: extraction dead-ends AND extraction
+ *  exhaustion promote too, not just initiation failures (3.6 dress + audit). */
 export async function promoteBench(db: SupabaseClient, searchId: string): Promise<void> {
-  const { data: next } = await db
-    .from("calls")
-    .select("id")
-    .eq("search_id", searchId)
-    .eq("status", "queued")
-    .eq("is_bench", true)
-    .order("rank_score", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!next) return;
-  await db
-    .from("calls")
-    .update({ is_bench: false })
-    .eq("id", next.id)
-    .eq("status", "queued");
+  const { error } = await db.rpc("promote_bench", { p_search_id: searchId });
+  if (error) throw new Error(`promote_bench: ${error.message}`);
 }
 
 /**
  * Drain settle: nothing in flight and nothing (non-bench) left to dial →
- * expire leftover bench rows and complete the search. The 20-minute deadline
+ * expire leftover bench rows and complete the search. Atomic SQL on the same
+ * advisory lock as the claim and promotion (3.7 P1-3). The 20-minute deadline
  * path belongs to settle_search (4.1).
  */
 export async function settleIfDrained(
@@ -168,29 +158,10 @@ export async function settleIfDrained(
   searchId: string,
   now: Date,
 ): Promise<boolean> {
-  const { data: open } = await db
-    .from("calls")
-    .select("id, status, is_bench")
-    .eq("search_id", searchId)
-    .in("status", ["queued", "dialing", "transcript_ready"]);
-  const inFlight = (open ?? []).filter((c) => c.status !== "queued");
-  const dialable = (open ?? []).filter(
-    (c) => c.status === "queued" && !c.is_bench,
-  );
-  if (inFlight.length > 0 || dialable.length > 0) return false;
-
-  const leftoverBench = (open ?? []).map((c) => c.id);
-  if (leftoverBench.length) {
-    await db
-      .from("calls")
-      .update({ status: "expired", rank_bucket: 4 })
-      .in("id", leftoverBench)
-      .eq("status", "queued");
-  }
-  await db
-    .from("searches")
-    .update({ status: "complete", settled_at: now.toISOString() })
-    .eq("id", searchId)
-    .eq("status", "active");
-  return true;
+  const { data, error } = await db.rpc("settle_if_drained", {
+    p_search_id: searchId,
+    p_at: now.toISOString(),
+  });
+  if (error) throw new Error(`settle_if_drained: ${error.message}`);
+  return data === true;
 }

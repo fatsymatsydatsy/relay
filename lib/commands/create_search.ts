@@ -44,6 +44,9 @@ export interface CreateSearchDeps {
   radiusKm?: number;
   /** Verdict-cache window in minutes (matches the politeness lock). */
   cacheWindowMinutes?: number;
+  /** Searches are mode-scoped end-to-end (3.7 P1-1): the pool, the verdict
+   *  cache, and the claim all see only this mode's pharmacies. */
+  dialMode?: "DEV_TEST" | "REAL";
 }
 
 const KM_PER_MILE = 1.60934;
@@ -58,6 +61,9 @@ export async function createSearch(
   const targetCount = deps.targetCount ?? 6;
   const radiusKm = deps.radiusKm ?? 5;
   const cacheWindowMinutes = deps.cacheWindowMinutes ?? 60;
+  const dialMode =
+    deps.dialMode ??
+    ((process.env.DIAL_MODE ?? "DEV_TEST") as "DEV_TEST" | "REAL");
 
   const origin = await geocode(input.postcode);
   if (!origin) throw new Error("geocode_failed");
@@ -83,14 +89,23 @@ export async function createSearch(
     throw new Error(`medication upsert: ${medError?.message ?? "no row"}`);
   }
 
-  // candidate pool: dialable pharmacies inside the radius
+  // candidate pool: dialable pharmacies inside the radius, THIS MODE ONLY
+  // (3.7 P1-1: a REAL search must never rank, cache-copy, or wait on a
+  // dev_test pharmacy — mode isolation starts at the pool, not at dispatch)
   const { data: pharmacies, error: pharmacyError } = await db
     .from("pharmacies")
-    .select("ods_code, name, lat, lng, hours, ownership_group, is_supermarket");
+    .select(
+      "ods_code, name, lat, lng, hours, ownership_group, is_supermarket, source, verified",
+    );
   if (pharmacyError || !pharmacies) {
     throw new Error(`pharmacies fetch: ${pharmacyError?.message}`);
   }
-  const inRadius = pharmacies.filter(
+  const modeEligible = pharmacies.filter((p) =>
+    dialMode === "DEV_TEST"
+      ? p.source === "dev_test"
+      : p.verified && p.source !== "dev_test",
+  );
+  const inRadius = modeEligible.filter(
     (p) =>
       distanceMiles(origin, { lat: p.lat, lng: p.lng }) * KM_PER_MILE <=
       radiusKm,
@@ -142,6 +157,7 @@ export async function createSearch(
         postcode: input.postcode,
         radius_km: radiusKm,
         status: "complete",
+        dial_mode: dialMode,
         deadline_at: new Date(now.getTime() + 20 * 60_000).toISOString(),
         settled_at: now.toISOString(),
       })
@@ -175,6 +191,7 @@ export async function createSearch(
       postcode: input.postcode,
       radius_km: radiusKm,
       status: "active",
+      dial_mode: dialMode,
       deadline_at: new Date(now.getTime() + 20 * 60_000).toISOString(),
     })
     .select("id")
@@ -184,14 +201,15 @@ export async function createSearch(
   }
 
   // the verdict cache: latest verdict per target pharmacy for THIS medication
-  // inside the politeness window — copied, never re-dialed
+  // inside the politeness window — copied, never re-dialed. Same MODE only
+  // (3.7 P1-1): a DEV_TEST verdict must never appear on a REAL board.
   const targetOds = portfolio.targets.map((t) => t.ods);
   const since = new Date(now.getTime() - cacheWindowMinutes * 60_000).toISOString();
   const { data: cached } = targetOds.length
     ? await db
         .from("calls")
         .select(
-          "id, pharmacy_ods, verdict, rank_bucket, location_confirmed, verdict_at",
+          "id, pharmacy_ods, verdict, rank_bucket, location_confirmed, verdict_at, searches!inner(medication_id, dial_mode)",
         )
         .in("pharmacy_ods", targetOds)
         .eq("status", "verdict")
@@ -200,28 +218,16 @@ export async function createSearch(
     : { data: [] };
   const cacheByOds = new Map<string, NonNullable<typeof cached>[number]>();
   for (const row of cached ?? []) {
-    // rows arrive newest-first; keep the first per pharmacy. Only same-med
-    // verdicts may be copied — resolve via the cached call's search.
-    if (!cacheByOds.has(row.pharmacy_ods)) cacheByOds.set(row.pharmacy_ods, row);
-  }
-  // filter cache to the same medication (verdicts for another drug don't count)
-  if (cacheByOds.size > 0) {
-    const { data: cachedSearches } = await db
-      .from("calls")
-      .select("id, search_id, searches!inner(medication_id)")
-      .in("id", [...cacheByOds.values()].map((c) => c.id));
-    const sameMed = new Set(
-      (cachedSearches ?? [])
-        .filter(
-          (r) =>
-            (r.searches as unknown as { medication_id: string }).medication_id ===
-            medication.id,
-        )
-        .map((r) => r.id),
-    );
-    for (const [ods, row] of [...cacheByOds]) {
-      if (!sameMed.has(row.id)) cacheByOds.delete(ods);
+    // rows arrive newest-first; keep the first ELIGIBLE per pharmacy: the
+    // verdict must be for this medication AND from a same-mode search.
+    const src = row.searches as unknown as {
+      medication_id: string;
+      dial_mode: string;
+    };
+    if (src.medication_id !== medication.id || src.dial_mode !== dialMode) {
+      continue;
     }
+    if (!cacheByOds.has(row.pharmacy_ods)) cacheByOds.set(row.pharmacy_ods, row);
   }
 
   const callRows = [
@@ -263,6 +269,20 @@ export async function createSearch(
   const cachedCopies = portfolio.targets.filter((t) =>
     cacheByOds.has(t.ods),
   ).length;
+
+  // Every target satisfied from cache → nothing will ever dial and no webhook
+  // will ever fire (audit P2-1): settle NOW — leftover bench expires, the
+  // search completes, the board's tick shows a finished search.
+  if (cachedCopies === portfolio.targets.length) {
+    const { error: settleError } = await db.rpc("settle_if_drained", {
+      p_search_id: search.id,
+      p_at: now.toISOString(),
+    });
+    if (settleError) {
+      throw new Error(`settle_if_drained: ${settleError.message}`);
+    }
+  }
+
   return {
     searchId: search.id,
     queued: portfolio.targets.length - cachedCopies,

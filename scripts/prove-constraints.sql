@@ -3,7 +3,8 @@
 -- Run: psql <db-url> -v ON_ERROR_STOP=1 -f scripts/prove-constraints.sql
 -- (ON_ERROR_STOP makes any accepted forbidden state fail the psql PROCESS,
 --  so the machine gate can trust the exit code.)
--- Output must end with: ALL 13 FORBIDDEN STATES REJECTED
+-- Output must end with: ALL 17 FORBIDDEN STATES REJECTED
+-- (14–17 added by 3.7: the bucket ↔ payload matrix, audit P2-3)
 
 begin;
 
@@ -137,16 +138,52 @@ begin
     rejected := rejected + 1;
   end;
 
+  -- 14) bucket 1 whose payload does NOT claim in_stock (matrix, audit P2-3)
+  begin
+    insert into calls (search_id, pharmacy_ods, status, rank_bucket, verdict, location_confirmed)
+    values ('00000000-0000-0000-0000-00000000aaaa', 'TEST1', 'verdict', 1,
+            '{"stock_status":"unclear"}', 'yes');
+    raise exception 'FORBIDDEN STATE 14 ACCEPTED';
+  exception when check_violation then rejected := rejected + 1;
+  end;
+
+  -- 15) bucket 2 carrying an in_stock payload (renders "can order" over stock)
+  begin
+    insert into calls (search_id, pharmacy_ods, status, rank_bucket, verdict, location_confirmed)
+    values ('00000000-0000-0000-0000-00000000aaaa', 'TEST1', 'verdict', 2,
+            '{"stock_status":"in_stock"}', 'yes');
+    raise exception 'FORBIDDEN STATE 15 ACCEPTED';
+  exception when check_violation then rejected := rejected + 1;
+  end;
+
+  -- 16) bucket 3 carrying an orderable payload
+  begin
+    insert into calls (search_id, pharmacy_ods, status, rank_bucket, verdict, location_confirmed)
+    values ('00000000-0000-0000-0000-00000000aaaa', 'TEST1', 'verdict', 3,
+            '{"stock_status":"orderable"}', 'yes');
+    raise exception 'FORBIDDEN STATE 16 ACCEPTED';
+  exception when check_violation then rejected := rejected + 1;
+  end;
+
+  -- 17) bucket-4 verdict row whose payload smuggles an orderable claim
+  begin
+    insert into calls (search_id, pharmacy_ods, status, rank_bucket, verdict, location_confirmed)
+    values ('00000000-0000-0000-0000-00000000aaaa', 'TEST1', 'verdict', 4,
+            '{"stock_status":"orderable"}', 'yes');
+    raise exception 'FORBIDDEN STATE 17 ACCEPTED';
+  exception when check_violation then rejected := rejected + 1;
+  end;
+
   -- sanity: the LEGAL versions must succeed
   update dial_log set outcome = 'freed' where id = fixture_dial;      -- outcome may change
   insert into calls (search_id, pharmacy_ods) values                  -- transcript-less rows
     ('00000000-0000-0000-0000-00000000aaaa', 'TEST1')                 --   may be deleted
     on conflict do nothing;
 
-  if rejected = 13 then
-    raise notice 'ALL 13 FORBIDDEN STATES REJECTED';
+  if rejected = 17 then
+    raise notice 'ALL 17 FORBIDDEN STATES REJECTED';
   else
-    raise exception 'ONLY % OF 13 FORBIDDEN STATES REJECTED', rejected;
+    raise exception 'ONLY % OF 17 FORBIDDEN STATES REJECTED', rejected;
   end if;
 end $$;
 
