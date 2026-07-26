@@ -59,8 +59,8 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
   - [x] 0.4.2 Minimal agent (temporary config, not the full script) + dashboard test call → passes when: 🧑 Marvin's phone rings from the dashboard and he hears the voice. ✅ Marvin: "tested and the agent talks to me and it works."
   - [x] 0.4.3 Outbound call via API from a script, `call_ref` in dynamic variables → passes when: 🤖 response contains `conversation_id` + `callSid`. ✅ conv_7901kye0…, CA592f9f….
   - [x] 0.4.4 Webhook route: HMAC verify → append raw to `call_events` → 200 → passes when: 🤖 a forged-signature POST gets 200 + log + NO row ✅ (vs prod); a real webhook writes a row ✅ (event id 1).
-  - [?] 0.4.5 End-to-end tracer: script dials Marvin, he answers, hangs up → passes when: 🤖 within 60s `call_events` holds a `post_call_transcription` row whose `call_ref` matches, with real transcript text ✅ (landed ~45s, call_ref matched, transcript real). 🧑 **Marvin confirms the transcript matches what he said** ("Hello." / "No.") — one word closes Phase 0.
-  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ machine side.
+  - [x] 0.4.5 End-to-end tracer: script dials Marvin, he answers, hangs up → passes when: 🤖 within 60s `call_events` holds a `post_call_transcription` row whose `call_ref` matches, with real transcript text ✅ (landed ~45s). 🧑 Marvin confirmed the transcript. ✅ "Approved."
+  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ **PHASE 0 CLOSED.** Gate before Phase 1/2: fix codex end-of-phase findings (review in flight).
 
 ---
 
