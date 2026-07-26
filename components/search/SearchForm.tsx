@@ -16,6 +16,7 @@ export default function SearchForm({ onSearch }: SearchFormProps) {
   const [values, setValues] = useState<SearchRequest>({
     medication: "",
     dose: "",
+    quantity: 1,
     postcode: "",
   });
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
@@ -51,17 +52,19 @@ export default function SearchForm({ onSearch }: SearchFormProps) {
     onSearch({
       medication: values.medication.trim(),
       dose: values.dose.trim(),
+      quantity: values.quantity,
       postcode,
     });
   }
 
   const doseId = `${baseId}-dose`;
+  const quantityId = `${baseId}-quantity`;
   const postcodeId = `${baseId}-postcode`;
   const medLabelId = `${baseId}-med-label`;
 
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="Find your medication">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-7">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-8">
         <div className="sm:col-span-3">
           <label
             id={medLabelId}
@@ -117,6 +120,26 @@ export default function SearchForm({ onSearch }: SearchFormProps) {
               className="field w-full px-4 py-3 text-[15px]"
             />
           )}
+        </div>
+
+        <div className="sm:col-span-1">
+          <label htmlFor={quantityId} className="mb-1.5 block text-sm font-medium text-ink">
+            Packs
+          </label>
+          <select
+            id={quantityId}
+            value={values.quantity}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, quantity: Number(e.target.value) }))
+            }
+            className="field w-full px-3 py-3 text-[15px]"
+          >
+            {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="sm:col-span-2">

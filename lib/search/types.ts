@@ -8,6 +8,9 @@ export type CallPhase =
 export interface SearchRequest {
   medication: string;
   dose: string;
+  /** Packs/boxes needed (1–20, schema-enforced). Partial stock renders
+   *  against this: "1 box — you need 2". */
+  quantity: number;
   postcode: string;
 }
 
