@@ -44,12 +44,12 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
   - [x] 0.1.2 git init + first commit + `.env.example` naming every key → passes when: `git log` shows commit; `.env.local` is ignored (`git status` clean with it present). ✅ commit 048dd05; env ignored verified.
   - **Step success:** fresh `npm install && npm run build` green from a clean checkout. ✅
 
-- [~] **0.2 Database schema v1** 🤖
-  - [~] 0.2.1 Migrations: `medications, pharmacies, searches, calls, call_events, dial_log` with status enums, `unique(search_id, pharmacy_id)`, CHECK constraints (no stock verdict without confirmed branch) → passes when: migration applies cleanly to a fresh database.
-  - [ ] 0.2.2 Constraint proof script: attempts 5 forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all 5 are REJECTED by the database itself.
-  - **Step success:** schema up + all forbidden-state inserts bounce.
+- [x] **0.2 Database schema v1** 🤖
+  - [x] 0.2.1 Migrations: `medications, pharmacies, searches, calls, call_events, dial_log` (+ `anomalies`) with status enums, `unique(search_id, pharmacy_ods)`, CHECK constraints (no stock verdict without confirmed branch) → passes when: migration applies cleanly to a fresh database. ✅ `supabase db reset` clean on the local stack (ports moved to 555xx; analytics container off for colima).
+  - [x] 0.2.2 Constraint proof script: attempts 6 forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all are REJECTED by the database itself. ✅ `scripts/prove-constraints.sql` → "ALL 6 FORBIDDEN STATES REJECTED" (commit 2c2467b).
+  - **Step success:** schema up + all forbidden-state inserts bounce. ✅
 
-- [ ] **0.3 Deployed shell** 🤖 + 🧑
+- [ ] **0.3 Deployed shell** 🤖 + 🧑 — **⛔ blocked on Marvin:** (a) `npm i -g vercel` + `vercel login` (or a Vercel token), (b) create the cloud Supabase project and paste its URL + anon + service-role keys. Local stack already proves the schema; cloud is copy-paste.
   - [ ] 0.3.1 Vercel project + env vars + deploy → passes when: 🤖 prod URL returns 200.
   - [ ] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded."
   - **Step success:** the deployed site provably talks to the database.

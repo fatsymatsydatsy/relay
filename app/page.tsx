@@ -8,8 +8,10 @@ async function pharmacyCount(): Promise<number | null> {
     const { count, error } = await supabase
       .from("pharmacies")
       .select("*", { count: "exact", head: true });
-    if (error) return null;
-    return count ?? 0;
+    // head:true responses carry no body, so a missing table yields error=null
+    // AND count=null — treat both as "not connected", never as zero.
+    if (error || count === null) return null;
+    return count;
   } catch {
     return null;
   }

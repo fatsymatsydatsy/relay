@@ -1,6 +1,8 @@
 -- MedFind schema v1 — Postgres is the single source of truth.
 -- Constraint philosophy: forbidden states are rejected by the database itself,
 -- not by application discipline (see build-steps.md "Designed-out bugs").
+-- Hardened per codex phase-0 review: explicit grants, verdict-leak bypasses closed,
+-- dial_log lifecycle, append-only raw data, E.164 checks.
 
 create extension if not exists pgcrypto;
 
@@ -11,6 +13,8 @@ create type call_status as enum (
 );
 
 create type search_status as enum ('active', 'complete');
+
+create type dial_outcome as enum ('reserved', 'connected', 'freed');
 
 -- ── reference data ───────────────────────────────────────────────────────────
 create table medications (
@@ -27,7 +31,7 @@ create table pharmacies (
   name text not null,
   address text not null,
   postcode text not null,
-  phone text not null,                   -- E.164
+  phone text not null check (phone ~ '^\+[1-9][0-9]{6,14}$'),  -- E.164, one representation
   lat double precision not null,
   lng double precision not null,
   hours jsonb not null,                  -- per-day sessions, Europe/London wall clock
@@ -64,19 +68,19 @@ create table calls (
   is_bench boolean not null default false,
   -- dial snapshot (review finding: snapshot mode + numbers at claim time)
   dial_mode text check (dial_mode in ('DEV_TEST', 'REAL')),
-  intended_number text,
-  resolved_number text,
+  intended_number text check (intended_number is null or intended_number ~ '^\+[1-9][0-9]{6,14}$'),
+  resolved_number text check (resolved_number is null or resolved_number ~ '^\+[1-9][0-9]{6,14}$'),
   claimed_at timestamptz,
   -- provider correlation (we correlate by OUR id passed as call_ref)
   conversation_id text unique,
   call_sid text,
-  -- raw is truth, verdict is derived
+  -- raw is truth (append-only via trigger), verdict is derived
   transcript jsonb,
   verdict jsonb,
   rank_bucket int check (rank_bucket between 1 and 4),
   location_confirmed text check (location_confirmed in ('yes', 'no', 'unclear')),
   copied_from_call_id uuid references calls(id),
-  extraction_attempts int not null default 0 check (extraction_attempts <= 3),
+  extraction_attempts int not null default 0 check (extraction_attempts between 0 and 3),
   ended_at timestamptz,
   verdict_at timestamptz,
   created_at timestamptz not null default now(),
@@ -84,15 +88,29 @@ create table calls (
   -- one attempt per pharmacy per search, ever (bench promotes OTHER pharmacies)
   unique (search_id, pharmacy_ods),
 
-  -- THE honesty constraint: a stock verdict (buckets 1-3) can only exist on a
-  -- completed call whose branch identity a human confirmed.
+  -- Buckets 1-3 only on a completed, branch-confirmed call with a verdict.
   constraint stock_verdict_integrity check (
     rank_bucket is null
     or rank_bucket = 4
     or (status = 'verdict' and location_confirmed = 'yes' and verdict is not null)
   ),
 
-  -- terminal failure states may never carry stock payloads
+  -- A verdict payload may only exist on a completed extraction with a known branch check.
+  constraint verdict_requires_completion check (
+    verdict is null
+    or (status = 'verdict' and location_confirmed is not null)
+  ),
+
+  -- A STOCK claim (in/out) additionally requires a confirmed branch and buckets 1-3.
+  -- Closes the codex-found bypass: bucket-4/null rows carrying in-stock payloads.
+  constraint stock_claims_require_confirmation check (
+    verdict is null
+    or (verdict->>'stock_status') is null
+    or (verdict->>'stock_status') not in ('in_stock', 'out_of_stock')
+    or (location_confirmed = 'yes' and rank_bucket between 1 and 3)
+  ),
+
+  -- terminal failure states may never carry verdict payloads
   constraint failures_carry_no_stock check (
     status not in ('unreached', 'wrong_location', 'skipped', 'expired')
     or verdict is null
@@ -101,6 +119,20 @@ create table calls (
 
 create index calls_search_idx on calls (search_id, status);
 create index calls_status_idx on calls (status) where status in ('queued', 'dialing', 'transcript_ready');
+
+-- transcripts are write-once: NULL → value only, never replaced (raw is evidence)
+create or replace function protect_transcript() returns trigger
+language plpgsql as $$
+begin
+  if old.transcript is not null and new.transcript is distinct from old.transcript then
+    raise exception 'transcript is append-only evidence and cannot be modified';
+  end if;
+  return new;
+end $$;
+
+create trigger calls_transcript_immutable
+  before update on calls
+  for each row execute function protect_transcript();
 
 -- ── append-only raw webhook log ──────────────────────────────────────────────
 create table call_events (
@@ -113,16 +145,53 @@ create table call_events (
   received_at timestamptz not null default now()
 );
 
--- ── dial log: feeds the 1-hour politeness rule + the verdict cache ───────────
+create or replace function reject_mutation() returns trigger
+language plpgsql as $$
+begin
+  raise exception '% is append-only', tg_table_name;
+end $$;
+
+create trigger call_events_append_only
+  before update or delete on call_events
+  for each row execute function reject_mutation();
+
+-- ── dial log: the 1-hour politeness rule + verdict cache, WITH lifecycle ─────
+-- reserved  → row inserted in the claim transaction, blocks the number
+-- connected → provider accepted the call, keeps blocking
+-- freed     → definite provider rejection; stops blocking but keeps audit history
 create table dial_log (
   id bigint generated always as identity primary key,
-  phone text not null,
+  phone text not null check (phone ~ '^\+[1-9][0-9]{6,14}$'),
   medication_id uuid references medications(id),
   call_id uuid references calls(id),
+  outcome dial_outcome not null default 'reserved',
   dialed_at timestamptz not null default now()
 );
 
-create index dial_log_phone_idx on dial_log (phone, dialed_at desc);
+-- the politeness lookup only scans rows that still block
+create index dial_log_blocking_idx on dial_log (phone, dialed_at desc)
+  where outcome in ('reserved', 'connected');
+
+-- only the outcome may ever change; everything else is history
+create or replace function dial_log_outcome_only() returns trigger
+language plpgsql as $$
+begin
+  if new.phone is distinct from old.phone
+     or new.medication_id is distinct from old.medication_id
+     or new.call_id is distinct from old.call_id
+     or new.dialed_at is distinct from old.dialed_at then
+    raise exception 'dial_log rows are history — only outcome may change';
+  end if;
+  return new;
+end $$;
+
+create trigger dial_log_history
+  before update on dial_log
+  for each row execute function dial_log_outcome_only();
+
+create trigger dial_log_no_delete
+  before delete on dial_log
+  for each row execute function reject_mutation();
 
 -- ── watchdog anomaly log (it acting = something to look at) ──────────────────
 create table anomalies (
@@ -131,6 +200,19 @@ create table anomalies (
   detail jsonb not null,
   created_at timestamptz not null default now()
 );
+
+-- ── privileges: explicit and least-privilege (never rely on defaults) ────────
+-- service role (commands) gets full access + sequences
+grant usage on schema public to service_role, anon, authenticated;
+grant all on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
+-- clients: read-only, and only what the UI needs
+grant select on pharmacies, medications, searches to anon, authenticated;
+grant select (id, search_id, pharmacy_ods, status, rank_bucket, verdict,
+              location_confirmed, is_bench, verdict_at, ended_at, created_at)
+  on calls to anon, authenticated;
+-- call_events, dial_log, anomalies: no client grants at all (raw transcripts live here)
 
 -- ── row-level security: deny by default, owner-scoped reads (step 4.3 wires auth) ──
 alter table searches enable row level security;
@@ -151,10 +233,3 @@ create policy calls_owner_read on calls for select using (
   exists (select 1 from searches s where s.id = calls.search_id and s.owner = auth.uid())
 );
 -- no insert/update policies: only the service role (commands) writes.
--- call_events / dial_log / anomalies: no policies at all — service-role only.
-
--- the browser must never receive raw transcripts (review finding #9):
-revoke select on calls from anon, authenticated;
-grant select (id, search_id, pharmacy_ods, status, rank_bucket, verdict,
-              location_confirmed, is_bench, verdict_at, ended_at, created_at)
-  on calls to anon, authenticated;
