@@ -137,8 +137,10 @@ export async function recordCallEvent(
   return { action: "unreached", callId: call.id };
 }
 
-/** One dead call → one bench replacement (best-ranked bench row steps up). */
-async function promoteBench(db: SupabaseClient, searchId: string): Promise<void> {
+/** One dead call → one bench replacement (best-ranked bench row steps up).
+ *  Exported: extraction dead-ends (wrong branch, voicemail, refused) promote
+ *  too, not just initiation failures (found in the 3.6 dress logs). */
+export async function promoteBench(db: SupabaseClient, searchId: string): Promise<void> {
   const { data: next } = await db
     .from("calls")
     .select("id")

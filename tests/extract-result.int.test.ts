@@ -242,6 +242,56 @@ describe("extract_result", () => {
     expect(again.action).toBe("noop");
   });
 
+  it("bench.extraction-deadend — a bucket-4 extraction promotes the bench and refills", async () => {
+    if (!stackUp) return expect.soft(true).toBe(true);
+
+    // a fresh transcript_ready call + a bench row on the same search
+    const { data: deadEnd, error: deErr } = await db
+      .from("calls")
+      .insert({
+        search_id: otherSearchId,
+        pharmacy_ods: ODS(3),
+        status: "transcript_ready",
+        is_bench: false,
+        transcript: { transcript: [{ role: "user", message: "scenario wrongBranch" }] },
+      })
+      .select("id")
+      .single();
+    if (deErr) throw new Error(deErr.message);
+    const { data: bench, error: bErr } = await db
+      .from("calls")
+      .insert({
+        search_id: otherSearchId,
+        pharmacy_ods: ODS(4),
+        status: "queued",
+        is_bench: true,
+        rank_score: 0.4,
+      })
+      .select("id")
+      .single();
+    if (bErr) throw new Error(bErr.message);
+
+    let dispatches = 0;
+    const llm: ChatJsonFn = async () =>
+      JSON.stringify(SCRIPTS.wrongBranch(deadEnd!.id));
+    const outcome = await extractResult(deadEnd!.id, {
+      db,
+      llm,
+      dispatchFn: async () => void dispatches++,
+    });
+    expect(outcome.action).toBe("wrong_location");
+    expect(outcome.bucket).toBe(4);
+
+    const { data: promoted } = await db
+      .from("calls")
+      .select("is_bench, status")
+      .eq("id", bench!.id)
+      .single();
+    expect(promoted?.is_bench).toBe(false); // the bench stepped up
+    expect(promoted?.status).toBe("queued"); // ready for the next claim
+    expect(dispatches).toBe(1); // and the line refill was requested
+  });
+
   it("two schema failures escalate to gpt-5.6-sol; total failure is honest bucket 4", async () => {
     if (!stackUp) return expect.soft(true).toBe(true);
 

@@ -7,7 +7,10 @@ import {
   extractionUserPrompt,
 } from "@/lib/prompts/extraction";
 import { ExtractionSchema, mapExtraction } from "@/lib/domain/verdict";
-import { settleIfDrained } from "@/lib/commands/record_call_event";
+import {
+  promoteBench,
+  settleIfDrained,
+} from "@/lib/commands/record_call_event";
 
 /**
  * extract_result (3.4) — stored transcript → schema → verdict row.
@@ -30,6 +33,8 @@ export interface ExtractDeps {
   llm?: ChatJsonFn;
   now?: Date;
   models?: { primary: string; escalation: string };
+  /** invoked after a bench promotion so the freed line refills (3.2). */
+  dispatchFn?: () => Promise<unknown>;
 }
 
 export interface ExtractOutcome {
@@ -138,6 +143,14 @@ export async function extractResult(
       .from("pharmacies")
       .update({ number_type: "national" })
       .eq("ods_code", call.pharmacy_ods);
+  }
+
+  // A bucket-4 outcome is a DEAD END (wrong branch, voicemail, refused,
+  // unclear): the bench replaces it one-for-one, exactly like an initiation
+  // failure — found missing in the 3.6 dress logs (bench.extraction-deadend).
+  if (mapped.bucket === 4) {
+    await promoteBench(db, call.search_id);
+    if (deps.dispatchFn) await deps.dispatchFn();
   }
 
   // fan out a fresh REAL verdict to same-pharmacy+med queued calls elsewhere

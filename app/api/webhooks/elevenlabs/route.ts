@@ -122,7 +122,8 @@ export async function POST(req: Request) {
           await recordCallEvent(
             { eventType, payload },
             {
-              extractFn: (callId) => extractResult(callId),
+              extractFn: (callId) =>
+                extractResult(callId, { dispatchFn: () => dispatch() }),
               dispatchFn: () => dispatch(),
             },
           );
