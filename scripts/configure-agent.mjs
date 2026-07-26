@@ -7,9 +7,11 @@
  * Idempotent PATCH; run whenever the script doc changes:
  *   node scripts/configure-agent.mjs
  *
- * Dashboard-only toggles this script CANNOT set (verify by hand in the agent
- * settings): voicemail detection (end call, no message) · keypad/DTMF tones ·
- * end-call tool. 30s ring is an outbound/Twilio property, not agent config.
+ * Also enables the system tools the behavior depends on (they default OFF —
+ * the 3.5 slice proved an agent without end_call cannot hang up):
+ * end_call · voicemail_detection (hang up, never leave a message) ·
+ * play_keypad_touch_tone (IVR menus). 30s ring is an outbound/Twilio
+ * property, not agent config.
  */
 import { readFileSync } from "node:fs";
 
@@ -64,7 +66,35 @@ const res = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${AGENT_ID}`
       agent: {
         first_message: FIRST_MESSAGE,
         language: "en",
-        prompt: { prompt: PROMPT },
+        prompt: {
+          prompt: PROMPT,
+          built_in_tools: {
+            end_call: {
+              type: "system",
+              name: "end_call",
+              description:
+                "End the call. Use after every goodbye: wrong branch, refusal, voicemail, or once you have thanked them after the stock answer.",
+              params: { system_tool_type: "end_call" },
+            },
+            voicemail_detection: {
+              type: "system",
+              name: "voicemail_detection",
+              description:
+                "Detects answering machines/voicemail. End immediately, never leave a message.",
+              params: {
+                system_tool_type: "voicemail_detection",
+                voicemail_message: "",
+              },
+            },
+            play_keypad_touch_tone: {
+              type: "system",
+              name: "play_keypad_touch_tone",
+              description:
+                "Press phone menu (IVR) keys — choose pharmacy/dispensary options, at most two menu levels.",
+              params: { system_tool_type: "play_keypad_touch_tone" },
+            },
+          },
+        },
       },
       conversation: { max_duration_seconds: 300 },
     },
