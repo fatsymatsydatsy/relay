@@ -46,7 +46,7 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
 
 - [x] **0.2 Database schema v1** 🤖
   - [x] 0.2.1 Migrations: `medications, pharmacies, searches, calls, call_events, dial_log` (+ `anomalies`) with status enums, `unique(search_id, pharmacy_ods)`, CHECK constraints (no stock verdict without confirmed branch) → passes when: migration applies cleanly to a fresh database. ✅ `supabase db reset` clean on the local stack (ports moved to 555xx; analytics container off for colima).
-  - [x] 0.2.2 Constraint proof script: attempts 6 forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all are REJECTED by the database itself. ✅ `scripts/prove-constraints.sql` → "ALL 6 FORBIDDEN STATES REJECTED" (commit 2c2467b).
+  - [x] 0.2.2 Constraint proof script: attempts forbidden inserts (bucket-1 without `location_confirmed`, duplicate pharmacy per search, etc.) → passes when: all are REJECTED by the database itself. ✅ Originally 6 states (commit 2c2467b); criterion extended to **13** during 0.2b/0.5 review fixes — current gate: `scripts/prove-constraints.sql` ends "ALL 13 FORBIDDEN STATES REJECTED". 13/13 green.
   - **Step success:** schema up + all forbidden-state inserts bounce. ✅
 
 - [x] **0.3 Deployed shell** 🤖 + 🧑 — https://medfind-three.vercel.app · codex phase-0 review: 9 findings, all fixed in 0.2b (verdict-leak bypasses, dial_log lifecycle, append-only triggers, E.164, explicit grants, ON_ERROR_STOP, seed glob, attempts 0–3, engines).
@@ -54,13 +54,15 @@ Postgres is truth, commands are the only writers, UI is a projection · no retri
   - [x] 0.3.2 Placeholder page reads a count from the DB → passes when: 🧑 Marvin opens the URL and sees "MedFind — N pharmacies loaded." ✅ Marvin: "Checked, its correct."
   - **Step success:** the deployed site provably talks to the database.
 
-- [ ] **0.4 TRACER BULLET — one real call, no logic** 🧑 *(the whole point of Phase 0)*
+- [x] **0.4 TRACER BULLET — one real call, no logic** 🧑 *(the whole point of Phase 0)*
   - [x] 0.4.1 Import Twilio number into ElevenLabs (SID + auth token) → passes when: 🧑 number shows "imported" in the ElevenLabs dashboard. ✅ Marvin confirmed; +442046522842 (twilio) visible via API.
   - [x] 0.4.2 Minimal agent (temporary config, not the full script) + dashboard test call → passes when: 🧑 Marvin's phone rings from the dashboard and he hears the voice. ✅ Marvin: "tested and the agent talks to me and it works."
   - [x] 0.4.3 Outbound call via API from a script, `call_ref` in dynamic variables → passes when: 🤖 response contains `conversation_id` + `callSid`. ✅ conv_7901kye0…, CA592f9f….
   - [x] 0.4.4 Webhook route: HMAC verify → append raw to `call_events` → 200 → passes when: 🤖 a forged-signature POST gets 200 + log + NO row ✅ (vs prod); a real webhook writes a row ✅ (event id 1).
   - [x] 0.4.5 End-to-end tracer: script dials Marvin, he answers, hangs up → passes when: 🤖 within 60s `call_events` holds a `post_call_transcription` row whose `call_ref` matches, with real transcript text ✅ (landed ~45s). 🧑 Marvin confirmed the transcript. ✅ "Approved."
-  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ **PHASE 0 CLOSED.** End-of-phase codex review: 5 findings (1×P1 always-200 escape, 4×P2) — all fixed + attack-verified vs prod in 0.5; proof now 13/13; reports filed in `docs/review/`. Gate satisfied.
+  - **Step success:** the scary seam works end-to-end, correlated by OUR id, before any product logic exists. ✅ **PHASE 0 CLOSED.**
+
+- [x] **0.5 End-of-phase review fixes** 🤖 *(added after codex end-of-phase review — criterion recorded here per protocol)* — 5 findings (1×P1 always-200 escape path, 4×P2: raw_body evidence, body cap, revoke-then-grant, delete guard) → passes when: all fixed, proof extended, attack-verified against prod. ✅ commit a32c228; forged/garbage/2MB-body POSTs all return 200 with nothing persisted; proof 13/13; reports in `docs/review/`. Gate before Phase 1/2 satisfied.
 
 ---
 
