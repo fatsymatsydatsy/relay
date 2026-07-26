@@ -1,0 +1,15 @@
+# secrets — never committed
+.env
+.env.*
+!.env.example
+
+# dependencies & build output
+node_modules/
+.next/
+.vercel/
+.turbo/
+*.tsbuildinfo
+
+# misc
+.DS_Store
+*.log
