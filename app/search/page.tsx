@@ -9,7 +9,7 @@ import ActiveShortages from "@/components/ActiveShortages";
 import Quotes from "@/components/Quotes";
 import SearchForm from "@/components/search/SearchForm";
 import CallingBoard from "@/components/search/CallingBoard";
-import PharmacyMap from "@/components/search/PharmacyMap";
+import BoardMap from "@/components/search/BoardMap";
 import ResultCard from "@/components/search/ResultCard";
 import DemoBanner from "@/components/search/DemoBanner";
 import SafetyLine from "@/components/search/SafetyLine";
@@ -197,7 +197,7 @@ export default function SearchPage() {
           <section className="shell max-w-2xl py-10 sm:py-14">
             <div className="flex animate-fade-up flex-col gap-5">
             {simulated && <DemoBanner />}
-            <PharmacyMap
+            <BoardMap
               pharmacies={pharmacies}
               postcode={request.postcode}
               resolved={resolved}
@@ -220,7 +220,7 @@ export default function SearchPage() {
             {best ? (
               <>
                 <div className="animate-fade-up">
-                  <PharmacyMap
+                  <BoardMap
                     pharmacies={pharmacies}
                     postcode={request.postcode}
                     resolved

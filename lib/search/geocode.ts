@@ -44,7 +44,26 @@ export async function geocodePostcode(postcode: string): Promise<LatLng | null> 
   }
 }
 
-// (The tile-map helpers escapeHtml/offsetLatLng left with the Leaflet map —
-// the schematic PharmacyMap positions pins itself and React escapes text.
 // geocodePostcode stays: the 1.5 live engine derives distance/bearing from
-// the patient's geocoded position + pharmacy lat/lng.)
+// the patient's geocoded position + pharmacy lat/lng.
+
+const MILES_PER_DEG_LAT = 69.05;
+
+/** Project a (distance, bearing) offset from an origin — restored with the
+ *  real map (5.2g): GooglePharmacyMap places pins from the same
+ *  distanceMiles/bearing the board seam already carries. */
+export function offsetLatLng(
+  origin: LatLng,
+  distanceMiles: number,
+  bearingDeg: number,
+): LatLng {
+  const rad = (bearingDeg * Math.PI) / 180;
+  const dNorth = distanceMiles * Math.cos(rad);
+  const dEast = distanceMiles * Math.sin(rad);
+  return {
+    lat: origin.lat + dNorth / MILES_PER_DEG_LAT,
+    lng:
+      origin.lng +
+      dEast / (MILES_PER_DEG_LAT * Math.cos((origin.lat * Math.PI) / 180)),
+  };
+}
