@@ -16,7 +16,13 @@ const LOCAL_SERVICE_KEY =
 // Mon 26 Jan 2026 10:00 UTC == 10:00 London (GMT).
 const DAY = new Date("2026-01-26T10:00:00Z");
 const NIGHT = new Date("2026-01-26T03:00:00Z");
-const ORIGIN = { lat: 52.0, lng: -1.9 };
+// Per-run random geography: fixture pharmacies from other tests (and stale
+// rows from previous runs — dial_log makes cleanup impossible) must never
+// fall inside this run's radius.
+const ORIGIN = {
+  lat: 50 + Math.random() * 1.5,
+  lng: -4 - Math.random() * 1.5,
+};
 const fakeGeocode = async () => ORIGIN;
 
 const NINE_TO_SIX: OpeningHours = Object.fromEntries(
