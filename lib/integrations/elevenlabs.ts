@@ -17,6 +17,47 @@ export type OutboundCallResult =
 
 export type OutboundCaller = (input: OutboundCallInput) => Promise<OutboundCallResult>;
 
+/** Watchdog reconcile (4.2): what does the provider say about a conversation
+ *  whose webhook we may have lost? Only DEFINITE answers transition rows. */
+export type ConversationLookupResult =
+  | { ok: true; state: "done"; transcript: unknown; analysis: unknown }
+  | { ok: true; state: "in_progress" }
+  | { ok: true; state: "failed" }
+  | { ok: false; notFound: true }
+  | { ok: false; notFound: false; detail: string };
+
+export type ConversationLookup = (
+  conversationId: string,
+) => Promise<ConversationLookupResult>;
+
+export const elevenLabsGetConversation: ConversationLookup = async (conversationId) => {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return { ok: false, notFound: false, detail: "elevenlabs env not configured" };
+  try {
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${encodeURIComponent(conversationId)}`,
+      { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(10_000) },
+    );
+    if (res.status === 404) return { ok: false, notFound: true };
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, notFound: false, detail: `${res.status} ${body.slice(0, 200)}` };
+    }
+    const data = (await res.json()) as {
+      status?: string;
+      transcript?: unknown;
+      analysis?: unknown;
+    };
+    if (data.status === "done") {
+      return { ok: true, state: "done", transcript: data.transcript ?? null, analysis: data.analysis ?? null };
+    }
+    if (data.status === "failed") return { ok: true, state: "failed" };
+    return { ok: true, state: "in_progress" }; // initiated / in-progress / processing
+  } catch (err) {
+    return { ok: false, notFound: false, detail: String(err).slice(0, 200) };
+  }
+};
+
 export const elevenLabsOutboundCall: OutboundCaller = async (input) => {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const agentId = process.env.ELEVENLABS_AGENT_ID;
