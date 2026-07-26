@@ -14,6 +14,7 @@ import ResultCard from "@/components/search/ResultCard";
 import DemoBanner from "@/components/search/DemoBanner";
 import SafetyLine from "@/components/search/SafetyLine";
 import { createSimulatedEngine } from "@/lib/search/simulated";
+import { createLiveEngine } from "@/lib/search/live-engine";
 import { capture } from "@/lib/analytics";
 import type {
   PharmacyResult,
@@ -45,9 +46,18 @@ const HOW_IT_WORKS = [
 ];
 
 export default function SearchPage() {
-  // Swap createSimulatedEngine() for the real calling engine when ready —
-  // this is the only line that changes. The engine is stable for the session.
-  const engine = useMemo(() => createSimulatedEngine(), []);
+  // Engine seam: simulated by default; ?engine=live drives the board from the
+  // caller's own DB rows via the create_search stub + realtime (1.5). Read
+  // from location (not useSearchParams) so the static prerender stays simple.
+  const engine = useMemo(() => {
+    if (
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("engine") === "live"
+    ) {
+      return createLiveEngine();
+    }
+    return createSimulatedEngine();
+  }, []);
 
   const simulated = engine.kind === "simulated";
 
